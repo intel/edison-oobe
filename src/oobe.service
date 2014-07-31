@@ -1,0 +1,12 @@
+[Unit]
+Description=Out-of-box configuration service
+After=mdns.service
+
+[Service]
+ExecStart=/usr/bin/start_oobe
+Restart=always
+RestartSec=10s
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

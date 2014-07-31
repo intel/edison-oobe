@@ -1,0 +1,490 @@
+#!/usr/bin/python
+
+import os
+import sys
+from sys import stdout
+import time
+import termios
+import fcntl
+import subprocess
+
+class text_colors:
+  CYAN = '\033[96m'
+  MAGENTA = '\033[95m'
+  BLUE  = '\033[94m'
+  YELLOW = '\033[93m'
+  GREEN = '\033[92m'
+  RED = '\033[91m'
+  END = '\033[0m'
+
+class wpa_templates:
+  START = '''
+ctrl_interface=/var/run/wpa_supplicant
+ctrl_interface_group=0
+update_config=1
+ap_scan=1
+'''
+  OPEN =  '''
+network={
+  ssid="%s"
+  %s
+  key_mgmt=NONE
+}'''
+  WEP =  '''
+network={
+  ssid="%s"
+  %s
+  key_mgmt=NONE
+  group=WEP104 WEP40
+  psk="%s" 
+}
+'''
+  WPAPSK =  '''
+network={
+  ssid="%s"
+  %s
+  key_mgmt=WPA-PSK
+  pairwise=CCMP TKIP
+  group=CCMP TKIP WEP104 WEP40
+  eap=TTLS PEAP TLS
+  psk="%s"
+}
+'''
+  WPAEAP =  '''
+network={
+  ssid="%s"
+  %s
+  key_mgmt=WPA-EAP
+  pairwise=CCMP TKIP
+  group=CCMP TKIP WEP104 WEP40
+  eap=TTLS PEAP TLS
+  identity="%s"
+  password="%s"
+  phase1="peaplabel=0"
+}
+'''
+  #worst case, break this out.
+  MAX = '''
+network={
+  ssid="%s"
+  %s
+  key_mgmt=WPA-EAP WPA-PSK IEEE8021X NONE
+  pairwise=CCMP TKIP
+  group=CCMP TKIP WEP104 WEP40
+  psk="%s"
+  eap=TTLS PEAP TLS
+  identity="%s"
+  password="%s"
+  phase1="peaplabel=0"
+}
+'''
+
+
+# Helpers
+#######################################
+
+#borrowed code.
+def getch():
+  fd = sys.stdin.fileno()
+
+  oldterm = termios.tcgetattr(fd)
+  newattr = termios.tcgetattr(fd)
+  newattr[3] = newattr[3] & ~termios.ICANON & ~termios.ECHO
+  termios.tcsetattr(fd, termios.TCSANOW, newattr)
+
+  oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
+  fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
+
+  try:        
+    while 1:            
+      try:
+        c = sys.stdin.read(1)
+        break
+      except IOError: pass
+  finally:
+    termios.tcsetattr(fd, termios.TCSAFLUSH, oldterm)
+    fcntl.fcntl(fd, fcntl.F_SETFL, oldflags)
+  return c
+
+#borrowed code.
+def getPassword(prompt):
+  stdout.write(prompt)
+  pw = ""
+
+  while 1:
+    c = getch()
+    if c == '\r' or c == '\n':
+      break
+    if c == '\003':
+      raise KeyboardInterrupt
+    if c == '\x08' or c == '\x7f':
+      if len(pw):
+        pw = pw[:-1]
+        stdout.write('\x08')
+        stdout.write('\x20')
+        stdout.write('\x08')
+    else:
+      pw = pw + c
+      stdout.write("*")
+  stdout.write('\r')
+  stdout.write('\n')
+  return pw
+
+#failure code. needs to create an error log later.
+def noooo(location):
+  unacceptable_failure = "Strange Error... this shouldn't happen. Failure at %s. Let us know so we can patch this."
+  print unacceptable_failure % location
+  quit()
+
+def verified(selection):
+  verify = raw_input("Is " + text_colors.MAGENTA + selection + text_colors.END + " correct? " + text_colors.YELLOW + "[Y or N]" + text_colors.END + ": ")  
+  if verify == "Y" or verify == "y":
+    return 1
+  elif verify == "N" or verify == "n":
+    return 0
+  else:
+    while 1:
+      verify = raw_input("Please enter either " + text_colors.YELLOW + "[Y or N]" + text_colors.END + ": ")
+      if verify == "Y" or verify == "y":
+        return 1
+      elif verify == "N" or verify == "n":
+        return 0
+
+#exposed to the outside for other OOBE methods to use.
+def changeName(newName):
+  hostname_file = open('/etc/hostname','w')
+  hostname_file.write(newName + "\n")
+  hostname_file.close();
+  os.system("hostname -F /etc/hostname")
+  os.popen("sed -i 's/^ssid=.*/ssid=%s/' /etc/hostapd/hostapd.conf" % (newName+"_ap"))
+  os.system("systemctl restart mdns && sleep 2")
+
+#exposed to the outside for other OOBE methods to use.
+def changePassword(newPass):
+  os.popen('echo "root":"%s" | chpasswd' % newPass)
+  os.popen("sed -i 's/^wpa_passphrase=.*/wpa_passphrase=%s/' /etc/hostapd/hostapd.conf" % (newPass))
+
+def getNetworkIdentity():
+  return raw_input("Please enter the network username: ")
+
+def getNetworkPassword():
+  return getPassword("What is the network password?: ")
+
+def reset(stage):
+  os.system("clear")
+  print text_colors.CYAN + "\nConfigure Edison: " + stage + "\n" + text_colors.END
+
+
+# Main Functions
+#######################################
+
+def setUsername():
+  while 1:
+    name = raw_input("Give this Edison a unique name.\nThis will be used for the access point SSID and mDNS address.\nMake sure the name distinguishs this Edison from different Edisons.\nMake it at least five characters long: ")
+    if (len(name) > 4):
+      if verified(name):
+        print ""
+        break
+    else: 
+      name = raw_input("%s is too short for a name.\nPlease enter a name at least five characters long: " % name)
+  changeName(name)
+
+def setPassword():
+  while 1:
+    password = getPassword("Enter a new password.\nThis will be used to connect to the access point and login to the device.\nMake it as least five characters long: \t")
+    if (password == getPassword("Please enter the password again: \t")):
+      if len(password) > 4:
+        print "The device password has been changed.\n"
+        break
+      print "The password is too short."  
+    else:  
+      print "The passwords do not match."
+  changePassword(password)
+
+def decideToConnect():
+  while 1:
+    verify = raw_input("Do you want to set up wifi? " + text_colors.YELLOW + "[Y or N]" + text_colors.END + ": ")
+    if verify == "y" or verify == "Y":
+      return 1
+    elif verify == "n" or verify == "N":
+      return 0
+    else:
+      print "I need Y or N as a reply."
+
+def scanForNetworks():
+  stdout.write("Starting scan\r")
+  stdout.flush()
+  os.popen("systemctl stop hostapd && sleep 2 && systemctl start wpa_supplicant &")
+  r = range(1,10)
+  r.reverse()
+  for i in r:
+    stdout.write("Scanning: %s seconds left\r" % i)
+    stdout.flush()
+    if i == 4:
+      os.popen("wpa_cli scan")
+    time.sleep(1)
+  data = os.popen("wpa_cli scan_results").read().split("\n")
+
+  print "\n"
+  network_map = {}
+  ssid_keys = []
+
+  while (len(data)):
+    line = data.pop().split("\t")
+    if (len(line) == 5):
+      ssid = line.pop()
+      if ssid not in ssid_keys and not ssid == "":
+        tokens = line.pop().replace("[","").split("]")[0].split("-")
+        if tokens[0] == "WPA" or tokens[0] == "WPA2":
+          if tokens[1] == "EAP":
+            network_map[ssid] = "WPA-EAP"
+          elif tokens[1] == "PSK":
+            network_map[ssid] = "WPA-PSK"  
+        elif tokens[0] == "WEP":
+          network_map[ssid] = "WEP" 
+        else:
+          network_map[ssid] = "OPEN"   
+        ssid_keys.append(ssid)
+
+  return (ssid_keys, network_map)
+
+
+def selectNetwork(ssid_keys):
+  i = 1
+  print "0 :\tRescan for networks"
+  print "1 :\tManually input a hidden SSID"
+  for ssid in ssid_keys:
+    i = i + 1
+    print i, ":\t", ssid
+
+  print ""
+  choice = -1
+  while 1:
+    try:
+      if i == 1:
+        choice = int(raw_input("\nEnter 0 to rescan for networks.\nEnter 1 to input a hidden network SSID: "))
+      elif i == 2:
+        choice = int(raw_input("\nEnter 0 to rescan for networks.\nEnter 1 to input a hidden network SSID.\nEnter 2 to choose %s: " % ssid_keys[0]))
+      else:
+        choice = int(raw_input("\nEnter 0 to rescan for networks.\nEnter 1 to input a hidden network SSID.\nEnter a number between 2 to %s to choose one of the listed network SSIDs: " % i))
+    except TypeError:
+      choice = -1
+    except ValueError:
+      choice = -1
+
+    if choice == 0:
+      break
+    elif choice == 1:
+      break 
+    elif choice > 1 and choice <= i and verified(ssid_keys[choice-2]):
+      break
+  return choice
+
+
+def configureHiddenNetwork(ssid):
+  print '''
+    0: OPEN
+    1: WEP
+    2: WPA-Personal(PSK)
+    3: WPA-Enterprise (EAP)
+  '''
+  while 1:
+    try:
+      security = int(raw_input("Select the type of security [0 to 3]: "))
+    except TypeError:
+      security = -1
+    except ValueError:
+      security = -1
+
+    if security == 0:
+      return wpa_templates.OPEN % (ssid, "scan_ssid=1")
+    elif security == 1:
+      password = getNetworkPassword()
+      return wpa_templates.WEP % (ssid, "scan_ssid=1", password)
+    elif security == 2:
+      password = getNetworkPassword()
+      return wpa_templates.WPAPSK % (ssid, "scan_ssid=1", password)
+    elif security == 3:
+      identity = getNetworkIdentity()
+      password = getNetworkPassword()
+      return wpa_templates.WPAEAP % (ssid, "scan_ssid=1", identity, password)
+    else:
+      print "Invalid input."
+  return network_template_open % ssid
+
+
+def configureNetwork(choice,ssid_keys,network_map):
+  ssid = ssid_keys[choice-2]
+  if network_map[ssid] == "OPEN":
+    return wpa_templates.OPEN % (ssid, "")
+  elif network_map[ssid] == "WEP":
+    password = getNetworkPassword()
+    return wpa_templates.WEP % (ssid, "", password)
+  elif network_map[ssid] == "WPA-PSK":
+    password = getNetworkPassword()
+    return wpa_templates.WPAPSK % (ssid, "", password)
+  elif network_map[ssid] == "WPA-EAP":
+    identity = getNetworkIdentity()
+    password = getNetworkPassword()
+    return wpa_templates.WPAEAP % (ssid, "", identity, password)
+  else:
+    print noooo("the last line of startNetworkConfig")
+  
+
+def configureNetworkAP(argv):
+  protocol = argv[1]
+  ssid = argv[2]
+  if protocol == "OPEN":
+    return wpa_templates.OPEN % (ssid, "scan_ssid=1")
+  elif protocol == "WEP":
+    password = argv[3]
+    return wpa_templates.WEP % (ssid, "scan_ssid=1", password)
+  elif protocol == "WPA-PSK":
+    password = argv[3]
+    return wpa_templates.WPAPSK % (ssid, "scan_ssid=1", password)
+  elif protocol == "WPA-EAP":
+    identity = argv[3]
+    password = argv[4]
+    return wpa_templates.WPAEAP % (ssid, "scan_ssid=1", identity, password)
+  else:
+    print noooo("the last line of startNetworkConfig")  
+
+def setNetwork(network_conf, ssid):
+    if not os.path.isfile('/etc/wpa_supplicant/wpa_supplicant.conf.original'):
+        os.system("cp /etc/wpa_supplicant/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf.original")
+        
+    wpa_supplicant = open('/etc/wpa_supplicant/wpa_supplicant.conf','a') #Will not take care of duplicates at the moment.
+    wpa_supplicant.write(network_conf)
+    wpa_supplicant.close();
+
+    print "Initiating connection to " + ssid + "..."
+    try:
+        subprocess.call("wpa_cli reconfigure &> /dev/null && sleep 1", shell=True)
+        network_count = int(subprocess.check_output('wpa_cli list_networks | wc -l', shell=True))
+        subprocess.call("wpa_cli select_network " + str(network_count - 2 - 1) + " &> /dev/null", shell=True)
+        ifarray = subprocess.check_output("wpa_cli ifname", shell=True).split()
+        subprocess.call("udhcpc -i " + ifarray[len(ifarray)-1] + " &>/dev/null", shell=True)
+    except Exception as e:
+        print e
+    else:
+        print "Done. Network access should be available shortly, please check 'wpa_cli status'."
+
+def setNetworkAP(argv):
+    print "Configuring WiFi interface..."
+
+    if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) == 0:
+        os.system("systemctl stop hostapd && systemctl disable hostapd && systemctl restart wpa_supplicant &>2 /dev/null")
+        os.system("ln -s '/lib/systemd/system/wpa_supplicant.service' '/etc/systemd/system/multi-user.target.wants/wpa_supplicant.service' &>2 /dev/null") #todo: change to systemctl enable when fixed
+        os.system("systemctl daemon-reload")
+
+    os.system("sleep 10")
+    
+    network_conf = configureNetworkAP(argv)
+    setNetwork(network_conf, argv[2])
+
+def checkNetwork():
+  i = 60
+  while 1:
+    waiting = "Connecting: %s seconds left         \r" % i
+    stdout.write(waiting)
+    stdout.flush()
+    time.sleep(1)
+    address = os.popen("ifconfig | grep -A1 'wlan0' | grep 'inet'| awk -F' ' '{ print $2 }' | awk -F':' '{ print $2 }'").read().rstrip()
+    if not address == "":
+      print "Connected. Please go to " + text_colors.CYAN + address + text_colors.END + " in your browser to check if this is correct."
+      break
+    if i == 0:
+      print "Not connected. Something went wrong."
+      break
+    i = i-1
+
+def connectNetwork():
+  network_conf = ""
+  ssid = ""
+  
+  while 1:
+    reset("WiFi Connection")
+    (ssid_keys, network_map) = scanForNetworks()
+    choice = selectNetwork(ssid_keys)
+    
+    #choice is validated within selectNetwork.
+    if choice == 1:
+      while 1:
+          ssid = raw_input("Please enter the hidden network SSID: ")
+          if verified(ssid):
+              break
+      network_conf = configureHiddenNetwork(ssid)
+      break
+    elif choice:
+      network_conf = configureNetwork(choice, ssid_keys,network_map)
+      ssid = ssid_keys[choice-2]
+      break
+
+  #print network_conf
+  setNetwork(network_conf, ssid)
+  checkNetwork()
+
+def full():
+  reset("Device Name")
+  setUsername()
+  reset("Device Password")
+  setPassword()
+  if decideToConnect():
+    connectNetwork()
+  else:
+    print "Go pick out your IDE! It's somewhere on the web.\n" #todo: update this.
+
+
+def help():
+  print '''
+  Interactive configuration options:
+    (none)                  Goes through changing the device name, password, and wifi options.
+    --name or -n            Changes the device name
+    --password or -p        Changes the device password
+    --wifi or -w            Changes the wifi options
+  
+  Non-interactive configuration options
+    --changePassword        Changes the device password to the following argument
+    --changeName            Changes the device name to the following argument
+
+  Other options
+    --help or -h        Displays these help options
+    --server            Starts the server (testing only)
+  '''
+
+
+def main(argv):
+  current = argv[0]
+
+  if current == "--name" or current == '-n':
+    reset("Device Name")
+    setUsername()
+  elif current == "--password" or current == '-p':
+    reset("Device Password")
+    setPassword()
+  elif current == "--wifi" or current == '-w':
+    connectNetwork()
+  elif current == "--help" or current == '-h':
+    help()
+  elif current == "--changePassword":
+    if argv[1] > 1:
+      changePassword(argv[1])
+  elif current == "--changeName":
+    if argv[1] > 1:
+      changeName(argv[1])
+  elif current == "--changeWiFi":
+    #will not validate this one. Is validated in other programs.
+    setNetworkAP(argv)
+  elif current == "--server":
+    address = os.popen("ifconfig | grep -A1 'wlan0' | grep 'inet'| awk -F' ' '{ print $2 }' | awk -F':' '{ print $2 }'").read().rstrip()
+    os.system("node /usr/lib/oobe/oobe-server.js > ~/node.log &");
+    print "Connected. Please go to " + text_colors.CYAN + address + text_colors.END + " in your browser to check if this is correct."
+  else:
+    print "Incorrect input. Redirecting to --help"
+    help()
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+      main(sys.argv[1:])
+    else: 
+      full()

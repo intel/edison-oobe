@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [ ! $(wpa_cli list_networks 2> /dev/null | wc -l) -gt 2 ]
+then
+  echo "No wireless networks configured. Starting in AP mode..."
+  systemctl stop wpa_supplicant
+  systemctl start hostapd # start in AP mode
+fi
+
+su root -c 'node /usr/lib/oobe/oobe-server.js'
+
+# need a timeout process to shut down wifi if a connection cannot be made within 4 minutes of startup.
+# Note: this may become an issue with boards that do not have enough power. 

@@ -1,0 +1,81 @@
+html {
+  background-color: #0071c5;
+  padding: 0px;
+  margin: 0px;
+}
+
+body {
+  font-family: intel-clear, tahoma, helvetica, sans-serif;
+  margin-right: auto;
+  margin-left: auto;
+  width: 100%;
+  max-width: 1000px;
+  margin-top: 0px;
+  position: relative;
+  top: 0px;
+}
+
+.section {
+  padding: 30px;
+  background-color: white;
+  margin-top: 2px;
+  font-size: 0px;
+  margin-right: 5px;
+  margin-left: 5px;
+}
+
+.status {
+    width: 980px;
+    display: inline-block;
+    background-color: #FFFFCC;
+    padding: 5px;
+    margin-top: 2px;
+    margin-right: 5px;
+    margin-left: 5px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.errmsg {
+    color: #D00000;
+    font-weight: bold;
+}
+
+.half {
+  width: 420px;
+  display: inline-block;
+  font-size: 16px;
+  vertical-align: top;
+  padding-right: 30px;
+}
+
+h1 {
+  margin: 0px;
+  color: #939598;
+  font-size: 48px;
+  line-height: 76px;
+  font-weight: 200;
+  padding: 30px;
+  background: url('logo-intel.png') no-repeat 20px 5px;
+  background-color: #ebebeb;
+  background-size: 160px;
+  text-align: center;
+  margin-right: 5px;
+  margin-left: 5px;
+}
+
+h2 {
+  font-size: 24px;
+  font-weight: 100;
+}
+
+p {
+  font-size: 14px;
+  font-weight: 100;
+  padding: 0px;
+  margin: 0px;
+}
+
+.submit {
+  background-color: #00aeef;
+}
