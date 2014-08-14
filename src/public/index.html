@@ -1,128 +1,176 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Edison Configuration</title>
+<head>
+    <title>Edison One-time Setup</title>
     <link rel="stylesheet" type="text/css" href="main.css" media="screen"/>
-  </head>
-  <body>
-    <h1>Edison Configuration</h1>
-    <div class='section'>
-      <h2>Change Device Name</h2>
-      <div class='half'>
-        <p>This changes the device name for the access point and for mDNS. This does not change the default login, which remains as root. Minimum of 5 characters.</p>
-      </div>
-      <div class='half'>
-        <form id="name_form" method="post" action="setHost">
-          <table>
-              <col width="200">
-              <col width="200">
-            <tr>
-              <td>
-                <label for="name">New Device Name:</label>
-              </td>
-              <td>
-                <input type="text" id="name" name="name" maxlength="150" size="40">
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <input type="submit" value="Submit"/>
-              </td>
-              <td>
-              </td>
-            </tr>
-          </table>
-        </form>
-      </div>
+    <script>
+        function toggleFormElementVisibility(forms, isdisabled) {
+            for (var i = 0; i < forms.length; ++i) {
+                var elements = document.getElementById(forms[i]).elements;
+                for (var j = 0; j < elements.length; ++j) {
+                    elements[j].disabled = isdisabled;
+                }
+            }
+        }
+        window.onload = function setInputState() {
+            if (!document.getElementById("input_state_form"))
+                return;
+
+            var input_state = document.getElementById("input_state_form").elements["input_state"];
+
+            if (input_state.value === "ALL_ENABLED") {
+            //if (true) {
+                document.getElementById("name_section").removeAttribute("style");
+                document.getElementById("wifi_section").removeAttribute("style");
+
+                toggleFormElementVisibility(["wifi_form", "name_form", "exit_form"], false);
+            } else if (input_state.value === "ALL_DISABLED") {
+                document.getElementById("pass_section").style.color = 'gray';
+                toggleFormElementVisibility(["wifi_form", "name_form", "exit_form", "pass_form"], true);
+            }
+        }
+    </script>
+    <noscript>This page needs Javascript support to function correctly. Please enable Javascript in your
+        browser.</noscript>
+</head>
+<body>
+<a href="/" style="text-decoration: none"><h1>Edison One-time Setup</h1></a>
+<div id='pass_section' class='section'>
+    <h2>Change Device Password</h2>
+    <div class='half'>
+        <p>This changes the device password for both the access point and for root login.</p>
+        <br>
+        <p><b>A root password must be set to enable SSH access to the device.</b> To enable SSH <i>without</i>
+            a root password, leave the fields empty and click 'Submit' (access point password will
+            remain unchanged).</p>
     </div>
-    <div class='section'>
-      <h2>Change Device Password</h2>
-      <div class='half'>
-        <p>This changes the device password for both the access point and for login. The password must be between 8 to 63 characters long.</p>
-        </div>
-      <div class='half'>
-        <form id="pass_form" method="post" action="setPass">
-          <table>
-              <col width="200">
-              <col width="200">
-            <tr>
-              <td>
-                <label for="pass">New Device Password:</label>
-              </td>
-              <td>
-                <input type="password" id="pass" name="pass" maxlength="63" size="40">
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <input type="submit" value="Submit"/>
-              </td>
-              <td>
-              </td>
-            </tr>
-          </table>
+    <div class='half'>
+        <form id="pass_form" name="pass_form" method="post" action="setPass">
+            <table>
+                <col width="200">
+                <col width="200">
+                <tr>
+                    <td>
+                        <label for="pass1">New Device Password:</label>
+                    </td>
+                    <td>
+                        <input type="password" id="pass1" name="pass1" maxlength="63" size="40">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+
+                    </td>
+                    <td>
+                        <input type="password" id="pass2" name="pass2" maxlength="63" size="40">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                    </td>
+                    <td>
+                        <input type="submit" value="Submit"/>
+                    </td>
+                </tr>
+            </table>
         </form>
-      </div>
     </div>
-    <div class='section'>
-      <h2>Connect to a WiFi Network</h2>
-      <div class='half'>
+</div>
+<div id='name_section' class='section' style="color: gray">
+    <h2>Change Device Name</h2>
+
+    <div class='half'>
+        <p>This changes the device name for the access point and for mDNS. This does not change the default login, which
+            remains as root. Minimum of 5 characters.</p>
+    </div>
+    <div class='half'>
+        <form id="name_form" name="name_form" method="post" action="setHost">
+            <table>
+                <col width="200">
+                <col width="200">
+                <tr>
+                    <td>
+                        <label for="name">New Device Name:</label>
+                    </td>
+                    <td>
+                        <input disabled type="text" id="name" name="name" maxlength="150" size="40">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                    </td>
+                    <td>
+                        <input disabled type="submit" value="Submit"/>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
+</div>
+<div id="wifi_section" class='section' style="color: gray">
+    <h2>Connect to a WiFi Network</h2>
+
+    <div class='half'>
         <p>Connect to a wireless network by entering the credentials. This could take around
             <b>30 seconds</b> to complete.
         </p>
-      </div>
-      <div class='half'>
-        <form id="wifi_form" method="post" action="setWiFi">
-          <table>
-              <col width="200">
-              <col width="200">
-            <tr>
-              <td>
-                <label for="ssid">Network Name:</label>
-              </td>
-              <td>
-                <input type="text" id="ssid" name="ssid" maxlength="32" size="40">
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <label for="protocol">Network Protocol:</label>
-              </td>
-              <td>
-                <select id="protocol" name="protocol">
-                  <option value="OPEN">Open</option>
-                  <option value="WEP">WEP</option>
-                  <option value="WPA-PSK">WPA-Personal or WPA2-Personal</option>
-                  <option value="WPA-EAP">WPA2-Enterprise or WPA2-Enterprise</option>
-                </select>
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <label for="netuser">Username:</label>
-              </td>
-              <td>
-                <input type="text" id="netuser" name="netuser" maxlength="150" size="40">
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <label for="netpass">Password:</label>
-              </td>
-              <td>
-                <input type="password" id="netpass" name="netpass" maxlength="64" size="40">
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <input type="submit" value="Submit"/>
-              </td>
-              <td>
-              </td>
-            </tr>
-          </table>
-        </form>
-      </div>
     </div>
-  </body>
+    <div class='half'>
+        <form id="wifi_form" name="wifi_form" method="post" action="setWiFi">
+            <table>
+                <col width="200">
+                <col width="200">
+                <tr>
+                    <td>
+                        <label for="ssid">Network Name:</label>
+                    </td>
+                    <td>
+                        <input disabled type="text" id="ssid" name="ssid" maxlength="32" size="40">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="protocol">Network Protocol:</label>
+                    </td>
+                    <td>
+                        <select disabled id="protocol" name="protocol">
+                            <option value="OPEN">Open</option>
+                            <option value="WEP">WEP</option>
+                            <option value="WPA-PSK">WPA-Personal or WPA2-Personal</option>
+                            <option value="WPA-EAP">WPA2-Enterprise or WPA2-Enterprise</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="netuser">Username:</label>
+                    </td>
+                    <td>
+                        <input disabled type="text" id="netuser" name="netuser" maxlength="150" size="40">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="netpass">Password:</label>
+                    </td>
+                    <td>
+                        <input disabled type="password" id="netpass" name="netpass" maxlength="64" size="40">
+                    </td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>
+                        <input disabled type="submit" value="Submit"/>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
+</div>
+<div class="section" style="text-align: center">
+    <form id="exit_form" name="exit_form" action="/exit.html">
+        <input disabled type="submit" value="Exit">
+    </form>
+</div>
+</body>
 </html>

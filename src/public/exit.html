@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edison One-time Setup</title>
+    <link rel="stylesheet" type="text/css" href="main.css" media="screen"/>
+</head>
+<body>
+<h1>Edison One-time Setup</h1>
+
+<div class='section' style="text-align: center">
+    <p>Are you sure you want to exit the one-time setup process?</p>
+    <p>(You can always return by pressing the WiFi 'reset' button &#8212; labeled 'RM' &#8212; on the device for
+        more than 5 seconds.)</p>
+    <table align="center" style="padding: 10px">
+        <tr>
+            <td>
+                <form method="POST" action="/doExit">
+                    <input type="submit" value="Yes">
+                </form>
+            </td>
+            <td>
+                <form action="/">
+                    <input type="submit" value="No">
+                </form>
+            </td>
+        </tr>
+    </table>
+</div>
+</body>
+</html>

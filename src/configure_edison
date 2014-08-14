@@ -1,5 +1,17 @@
 #!/usr/bin/python
 
+# Copyright (c) 2014, Intel Corporation.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms and conditions of the GNU Lesser General Public License,
+# version 2.1, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+# more details.
+#
+
 import os
 import sys
 from sys import stdout
@@ -7,6 +19,15 @@ import time
 import termios
 import fcntl
 import subprocess
+import signal
+import socket
+import urllib
+import hashlib
+import argparse
+from array import *
+
+DESTINATION_PATH = "/tmp/"
+STATE_DIR = '/var/lib/edison_config_tools' # todo: change in bitbake
 
 class text_colors:
   CYAN = '\033[96m'
@@ -36,7 +57,7 @@ network={
   %s
   key_mgmt=NONE
   group=WEP104 WEP40
-  psk="%s" 
+  psk="%s"
 }
 '''
   WPAPSK =  '''
@@ -95,8 +116,8 @@ def getch():
   oldflags = fcntl.fcntl(fd, fcntl.F_GETFL)
   fcntl.fcntl(fd, fcntl.F_SETFL, oldflags | os.O_NONBLOCK)
 
-  try:        
-    while 1:            
+  try:
+    while 1:
       try:
         c = sys.stdin.read(1)
         break
@@ -137,7 +158,7 @@ def noooo(location):
   quit()
 
 def verified(selection):
-  verify = raw_input("Is " + text_colors.MAGENTA + selection + text_colors.END + " correct? " + text_colors.YELLOW + "[Y or N]" + text_colors.END + ": ")  
+  verify = raw_input("Is " + text_colors.MAGENTA + selection + text_colors.END + " correct? " + text_colors.YELLOW + "[Y or N]" + text_colors.END + ": ")
   if verify == "Y" or verify == "y":
     return 1
   elif verify == "N" or verify == "n":
@@ -150,54 +171,82 @@ def verified(selection):
       elif verify == "N" or verify == "n":
         return 0
 
-#exposed to the outside for other OOBE methods to use.
 def changeName(newName):
+  _changeHostName(newName)
+  _changeAPSSID()
+
+def _changeHostName(newName):
   hostname_file = open('/etc/hostname','w')
   hostname_file.write(newName + "\n")
   hostname_file.close();
-  os.system("hostname -F /etc/hostname")
-  os.popen("sed -i 's/^ssid=.*/ssid=%s/' /etc/hostapd/hostapd.conf" % (newName+"_ap"))
-  os.system("systemctl restart mdns && sleep 2")
+  subprocess.call("hostname -F /etc/hostname", shell=True)
 
-#exposed to the outside for other OOBE methods to use.
+def _changeAPSSID():
+  os.popen("sed -i 's/^ssid=.*/ssid=%s/' /etc/hostapd/hostapd.conf" % (socket.gethostname() + "_ap"))
+  subprocess.call("systemctl restart mdns && sleep 2", shell=True)
+
 def changePassword(newPass):
+  _changeRootPassword(newPass)
+  if len(newPass) > 0:
+      _changeAPPassword(newPass)
+
+  if (not os.path.isfile(STATE_DIR + "/password-setup.done")):
+      pass_done = open(STATE_DIR + "/password-setup.done", "w")
+      pass_done.write("Indicates that password has been changed via oobe.\n")
+      pass_done.close()
+      print "First-time root password setup complete. Enabling SSH on WiFi interface."
+      subprocess.call("sed -i 's/^BindToDevice=/# BindToDevice=/g' /lib/systemd/system/sshd.socket ; sync ; systemctl daemon-reload; systemctl restart sshd.socket", shell=True)
+
+def _changeRootPassword(newPass):
   os.popen('echo "root":"%s" | chpasswd' % newPass)
+
+def _changeAPPassword(newPass):
   os.popen("sed -i 's/^wpa_passphrase=.*/wpa_passphrase=%s/' /etc/hostapd/hostapd.conf" % (newPass))
 
 def getNetworkIdentity():
   return raw_input("Please enter the network username: ")
 
 def getNetworkPassword():
-  return getPassword("What is the network password?: ")
+  pw = ''
+  while len(pw) == 0:
+    pw = getPassword("What is the network password?: ")
+  return pw
 
 def reset(stage):
-  os.system("clear")
+  subprocess.call("clear", shell=True)
   print text_colors.CYAN + "\nConfigure Edison: " + stage + "\n" + text_colors.END
 
 
 # Main Functions
 #######################################
 
-def setUsername():
+def setEdisonHostname():
   while 1:
-    name = raw_input("Give this Edison a unique name.\nThis will be used for the access point SSID and mDNS address.\nMake sure the name distinguishs this Edison from different Edisons.\nMake it at least five characters long: ")
+    name = raw_input("Give this Edison a unique name.\nThis will be used for the access point SSID and mDNS address.\nMake it at least five characters long (leave empty to skip): ")
     if (len(name) > 4):
       if verified(name):
         print ""
         break
-    else: 
-      name = raw_input("%s is too short for a name.\nPlease enter a name at least five characters long: " % name)
-  changeName(name)
+      else:
+        print ""
+    elif (len(name) == 0):
+      print "Skipping name change..."
+      break
+    else:
+      print ""
+      print '\"' + name + "\" is too short. Please try again."
+      print ""
 
-def setPassword():
+  if len(name) > 0:
+      changeName(name)
+
+def setEdisonPassword():
   while 1:
-    password = getPassword("Enter a new password.\nThis will be used to connect to the access point and login to the device.\nMake it as least five characters long: \t")
+    password = getPassword("Enter a new password.\nThis will be used to connect to the access point and login to the device.\n - Leave empty to disable root password (won't change access point password). \nPassword: \t")
     if (password == getPassword("Please enter the password again: \t")):
-      if len(password) > 4:
         print "The device password has been changed.\n"
         break
-      print "The password is too short."  
-    else:  
+    else:
       print "The passwords do not match."
   changePassword(password)
 
@@ -214,9 +263,8 @@ def decideToConnect():
 def scanForNetworks():
   stdout.write("Starting scan\r")
   stdout.flush()
-  os.popen("systemctl stop hostapd && sleep 2 && systemctl start wpa_supplicant &")
-  r = range(1,10)
-  r.reverse()
+  os.popen("systemctl stop hostapd && sleep 2 && systemctl start wpa_supplicant")
+  r = range(9,0,-1)
   for i in r:
     stdout.write("Scanning: %s seconds left\r" % i)
     stdout.flush()
@@ -239,11 +287,11 @@ def scanForNetworks():
           if tokens[1] == "EAP":
             network_map[ssid] = "WPA-EAP"
           elif tokens[1] == "PSK":
-            network_map[ssid] = "WPA-PSK"  
+            network_map[ssid] = "WPA-PSK"
         elif tokens[0] == "WEP":
-          network_map[ssid] = "WEP" 
+          network_map[ssid] = "WEP"
         else:
-          network_map[ssid] = "OPEN"   
+          network_map[ssid] = "OPEN"
         ssid_keys.append(ssid)
 
   return (ssid_keys, network_map)
@@ -275,7 +323,7 @@ def selectNetwork(ssid_keys):
     if choice == 0:
       break
     elif choice == 1:
-      break 
+      break
     elif choice > 1 and choice <= i and verified(ssid_keys[choice-2]):
       break
   return choice
@@ -299,7 +347,9 @@ def configureHiddenNetwork(ssid):
     if security == 0:
       return wpa_templates.OPEN % (ssid, "scan_ssid=1")
     elif security == 1:
-      password = getNetworkPassword()
+      password = ''
+      while len(password) != 5 and len(password) != 13:
+        password = getNetworkPassword()
       return wpa_templates.WEP % (ssid, "scan_ssid=1", password)
     elif security == 2:
       password = getNetworkPassword()
@@ -329,58 +379,57 @@ def configureNetwork(choice,ssid_keys,network_map):
     return wpa_templates.WPAEAP % (ssid, "", identity, password)
   else:
     print noooo("the last line of startNetworkConfig")
-  
 
-def configureNetworkAP(argv):
-  protocol = argv[1]
-  ssid = argv[2]
+
+def configureNetworkAP(changewifi):
+  protocol = changewifi[0]
+  ssid = changewifi[1]
   if protocol == "OPEN":
     return wpa_templates.OPEN % (ssid, "scan_ssid=1")
   elif protocol == "WEP":
-    password = argv[3]
+    password = changewifi[2]
     return wpa_templates.WEP % (ssid, "scan_ssid=1", password)
   elif protocol == "WPA-PSK":
-    password = argv[3]
+    password = changewifi[2]
     return wpa_templates.WPAPSK % (ssid, "scan_ssid=1", password)
   elif protocol == "WPA-EAP":
-    identity = argv[3]
-    password = argv[4]
+    if len(changewifi) != 4:
+      print "Both Identify and Password must be provided. Unable to proceed"
+      return
+    identity = changewifi[2]
+    password = changewifi[3]
     return wpa_templates.WPAEAP % (ssid, "scan_ssid=1", identity, password)
   else:
-    print noooo("the last line of startNetworkConfig")  
+    print noooo("the last line of startNetworkConfig")
 
 def setNetwork(network_conf, ssid):
     if not os.path.isfile('/etc/wpa_supplicant/wpa_supplicant.conf.original'):
-        os.system("cp /etc/wpa_supplicant/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf.original")
-        
+        subprocess.call("cp /etc/wpa_supplicant/wpa_supplicant.conf /etc/wpa_supplicant/wpa_supplicant.conf.original", shell=True)
+
     wpa_supplicant = open('/etc/wpa_supplicant/wpa_supplicant.conf','a') #Will not take care of duplicates at the moment.
     wpa_supplicant.write(network_conf)
     wpa_supplicant.close();
 
     print "Initiating connection to " + ssid + "..."
+
     try:
-        subprocess.call("wpa_cli reconfigure &> /dev/null && sleep 1", shell=True)
+        if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) == 0:
+          subprocess.call("systemctl stop hostapd &> /dev/null", shell=True)
+          subprocess.call("systemctl start wpa_supplicant &> /dev/null", shell=True)
+          subprocess.call("sleep 10", shell=True)
+        else:
+          subprocess.call("wpa_cli reconfigure &> /dev/null && sleep 2", shell=True)
+
         network_count = int(subprocess.check_output('wpa_cli list_networks | wc -l', shell=True))
         subprocess.call("wpa_cli select_network " + str(network_count - 2 - 1) + " &> /dev/null", shell=True)
+
         ifarray = subprocess.check_output("wpa_cli ifname", shell=True).split()
-        subprocess.call("udhcpc -i " + ifarray[len(ifarray)-1] + " &>/dev/null", shell=True)
+        subprocess.call("udhcpc -i " + ifarray[len(ifarray)-1] + " -n &> /dev/null", shell=True)
     except Exception as e:
         print e
+        print "Sorry. Could not get an IP address."
     else:
         print "Done. Network access should be available shortly, please check 'wpa_cli status'."
-
-def setNetworkAP(argv):
-    print "Configuring WiFi interface..."
-
-    if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) == 0:
-        os.system("systemctl stop hostapd && systemctl disable hostapd && systemctl restart wpa_supplicant &>2 /dev/null")
-        os.system("ln -s '/lib/systemd/system/wpa_supplicant.service' '/etc/systemd/system/multi-user.target.wants/wpa_supplicant.service' &>2 /dev/null") #todo: change to systemctl enable when fixed
-        os.system("systemctl daemon-reload")
-
-    os.system("sleep 10")
-    
-    network_conf = configureNetworkAP(argv)
-    setNetwork(network_conf, argv[2])
 
 def checkNetwork():
   i = 60
@@ -401,12 +450,12 @@ def checkNetwork():
 def connectNetwork():
   network_conf = ""
   ssid = ""
-  
+
   while 1:
     reset("WiFi Connection")
     (ssid_keys, network_map) = scanForNetworks()
     choice = selectNetwork(ssid_keys)
-    
+
     #choice is validated within selectNetwork.
     if choice == 1:
       while 1:
@@ -424,67 +473,485 @@ def connectNetwork():
   setNetwork(network_conf, ssid)
   checkNetwork()
 
+def showWiFiIP():
+    ipstr = ''
+    try:
+        ipstr = subprocess.check_output('wpa_cli status | grep ip_address', shell=True)
+    except subprocess.CalledProcessError:
+        print >> sys.stderr, "No IP address found. Device not connected?"
+        print "none"
+        return
+    except Exception as inst:
+        print >> sys.stderr, type(inst)
+        print >> sys.stderr, inst
+        print "none"
+        return
+
+    startIdx = ipstr.find('=')
+    if (startIdx == -1):
+         print 'none'
+         return
+    print ipstr[ipstr.find('=')+1:].strip()
+
+def getCurrentFirmwareInfo():
+    f = open('/etc/version','r')
+    ver_str = f.readline()
+    f.close()
+    return (ver_str.split('_')[0], ver_str.split('_')[2])
+
+def parseFirmwareInfo(firmwareinfo, build_type):
+    count = 0;
+
+    # get version number
+    strarray = firmwareinfo.split("/")
+    while (count < len(strarray)):
+        if strarray[count] == build_type:
+            break
+        else:
+            count += 1
+    count += 1
+
+    # get url
+    urlstart = firmwareinfo.find('<url>\"')
+    urlstart = urlstart + len('<url>\"')
+    url = firmwareinfo[urlstart:]
+    urlend = url.find('\"</url>')
+    url = url[:urlend]
+
+    # get hash
+    start = firmwareinfo.find('<hash>\"')
+    start = start + len('<hash>\"')
+    sha1FromServer = firmwareinfo[start:]
+    end = sha1FromServer.find('\"</hash>')
+    sha1FromServer = sha1FromServer[:end]
+
+    return (strarray[count], sha1FromServer, url)
+
+def getLatestFirmwareInfo():
+    build_type = None
+    build_number = None
+
+    try:
+        build_type, build_number = getCurrentFirmwareInfo()
+    except Exception as inst:
+        print >> sys.stderr, "Could not determine firmware version information."
+        raise
+
+    build_url = "http://ndgfirmwareupdate-env.elasticbeanstalk.com/getLatestFirmwareUpdateURL?product=" + build_type
+    filehandle = urllib.urlopen(build_url)
+    response = filehandle.read()
+    return parseFirmwareInfo(response, build_type)
+
+def getSpecificFirmwareInfo(build_type, build_number):
+    build_url = "http://ndgfirmwareupdate-env.elasticbeanstalk.com/getFirmwareUpdateURL?product=" + build_type + "&version=" + build_number
+    filehandle = urllib.urlopen(build_url)
+    response = filehandle.read()
+    return parseFirmwareInfo(response, build_type)
+
+def removeFolderContents(folder_path):
+    try:
+        for folder_item in os.listdir(folder_path):
+            item_path = os.path.join(folder_path, folder_item)
+            os.unlink(item_path)
+    except Exception, e:
+        pass
+
+def removeFolder(folder_path):
+    removeFolderContents(folder_path)
+    try:
+        os.rmdir(folder_path)
+    except Exception, e:
+        pass
+
+def removePackage():
+    try:
+        os.remove(DESTINATION_PATH+"package.zip")
+    except Exception, e:
+        pass
+
+def signal_term_handler(signal, handler):
+    removePackage()
+    removeFolder("/update")
+    sys.exit(0)
+
+def err_downloadPackage():
+    print "Failed to download the new firmware. Unable to proceed."
+    removePackage()
+
+def err_createDestPackage():
+    print "Could not create destination folder. Unable to proceed."
+    removePackage()
+    removeFolder("/update")
+
+def err_unloadKernelModules():
+    print "Could not unload kernel modules. Unable to proceed."
+    print "Please reboot the device to return to normal."
+    removePackage()
+    removeFolder("/update")
+
+def err_setupLoopDevice():
+    print "Could not setup loop device. Unable to proceed"
+    print "Please reboot the device to return to normal."
+    removePackage()
+    removeFolder("/update")
+
+def err_mountDevice():
+    print "Could not perform mount operation. Unable to proceed"
+    print "Please reboot the device to return to normal."
+    removePackage()
+    removeFolder("/update")
+
+def err_extractPackage():
+    print "Could not extract the package. Unable to proceed"
+    print "Please reboot the device to return to normal."
+    removePackage()
+    removeFolder("/update")
+
+def err_umountDevice():
+    print "Could not perform umount operation. Unable to proceed"
+    print "Please reboot the device to return to normal."
+    removePackage()
+    removeFolder("/update")
+
+def genSha1ForFile(file_path):
+    chunkSize = 524288 # 512 KB chunk
+    sha = hashlib.sha1()
+    with open(file_path, 'rb') as f:
+        buf = f.read(chunkSize)
+        while len(buf) > 0:
+            sha.update(buf)
+            buf = f.read(chunkSize)
+    return sha.hexdigest()
+
+def downloadPackage(packageUrl, sha1FromServer):
+    ret_value = subprocess.call("curl --connect-timeout 10 "+ "'"+packageUrl+"'" + " >"+DESTINATION_PATH+"package.zip", shell=True)
+    if ret_value != 0:
+        err_downloadPackage()
+        return -1
+
+    shaOfDownloadedPkg = genSha1ForFile(DESTINATION_PATH + "package.zip")
+
+    if sha1FromServer != shaOfDownloadedPkg:
+        print "Could not establish integrity of downloaded firmware (hash mismatch). Unable to proceed"
+        removePackage()
+        return -1
+
+    return 0
+
+def doOTAFlash(packageUrl, sha1FromServer):
+    if len(sha1FromServer) != 40:
+        print "Could not establish integrity of latest firmware (bad hash). Unable to proceed."
+        return -1
+
+    try:
+            signal.signal(signal.SIGTERM, signal_term_handler)
+
+            try:
+                ret_value = downloadPackage(packageUrl, sha1FromServer)
+                if ret_value != 0:
+                    return -1
+            except Exception as inst:
+                err_downloadPackage()
+                print >> sys.stderr, type(inst)
+                print >> sys.stderr, inst
+                return -1
+
+            try:
+                ret_value = subprocess.call("mkdir -p /update", shell=True)
+                if ret_value != 0:
+                    err_createDestPackage()
+                    return -1
+            except Exception as inst:
+                err_createDestPackage()
+                print >> sys.stderr, type(inst)
+                print >> sys.stderr, inst
+                return -1
+
+            #notify user that partition will be disconnected from computer if plugged
+            try:
+                ret_value = subprocess.call("rmmod g_multi", shell=True)
+                if ret_value != 0:
+                    err_unloadKernelModules()
+                    return -1
+            except Exception as inst:
+                err_unloadKernelModules()
+                print >> sys.stderr, type(inst)
+                print >> sys.stderr, inst
+                return -1
+
+            try:
+                ret_value = subprocess.call("losetup -o 8192 /dev/loop0 /dev/disk/by-partlabel/update", shell=True)
+                if ret_value != 0:
+                    err_setupLoopDevice()
+                    return -1
+            except Exception as inst:
+                err_setupLoopDevice()
+                print >> sys.stderr, type(inst)
+                print >> sys.stderr, inst
+                return -1
+
+            try:
+                ret_value = subprocess.call("mount /dev/loop0 /update", shell=True)
+                if ret_value != 0:
+                    err_mountDevice()
+                    return -1
+            except Exception as inst:
+                err_mountDevice()
+                print >> sys.stderr, type(inst)
+                print >> sys.stderr, inst
+                return -1
+
+            if os.listdir("/update") != []:
+                print "Removing previous installation files"
+                removeFolderContents("/update")
+
+            try:
+                ret_value = subprocess.call("unzip -o " + DESTINATION_PATH + "package.zip -d /update", shell=True)
+                if ret_value != 0:
+                    err_extractPackage()
+                    return -1
+            except Exception as inst:
+                err_extractPackage()
+                print >> sys.stderr, type(inst)
+                print >> sys.stderr, inst
+                return -1
+
+            try:
+                ret_value = subprocess.call("umount /update", shell=True)
+                if ret_value != 0:
+                    err_umountDevice()
+                    return -1
+            except Exception as inst:
+                err_umountDevice()
+                print >> sys.stderr, type(inst)
+                print >> sys.stderr, inst
+                return -1
+
+            #subprocess.call("losetup -d /dev/loop0", shell=True)
+            ret_value = subprocess.call("reboot ota", shell=True)
+            if ret_value != 0:
+                #this is not expected to happen ever !!
+                print "Could not perform reboot ota operation"
+                print "Please reboot the device to return to normal."
+                removePackage()
+                removeFolder("/update")
+                return -1
+            #notify user that update will take few minutes and that he shouldn't remove power supply
+    except KeyboardInterrupt:
+        print ""
+        print "Interrupted by user. Cleaning up."
+        removePackage()
+        removeFolder("/update")
+        print "Please reboot the device to return to normal."
+    except Exception as inst:
+        print "Exception occurred while upgrading. Cleaning up."
+        print >> sys.stderr, type(inst)
+        print >> sys.stderr, inst
+        removePackage()
+        removeFolder("/update")
+        print "Please reboot the device to return to normal."
+
+def upgrade():
+    curr = None
+    build_type = None
+
+    try:
+        build_type, curr = getCurrentFirmwareInfo()
+    except Exception as inst:
+        print >> sys.stderr, "Could not determine firmware version information."
+        raise
+
+    try:
+        latest, sha1, url = getLatestFirmwareInfo()
+    except Exception as inst:
+        print >> sys.stderr, "Could not retrieve latest firmware version information."
+        raise
+
+    if int(latest) > int(curr):
+        doOTAFlash(url, sha1)
+    else:
+        print "The latest version is already installed."
+
 def full():
   reset("Device Name")
-  setUsername()
+  setEdisonHostname()
   reset("Device Password")
-  setPassword()
+  setEdisonPassword()
   if decideToConnect():
     connectNetwork()
+    if not os.path.isfile(STATE_DIR + "/one-time-setup.done"):
+        disableOneTimeSetup()
   else:
-    print "Go pick out your IDE! It's somewhere on the web.\n" #todo: update this.
+    print "Done.\n" #todo: update this.
+
+def enableOneTimeSetup():
+    hostname = subprocess.check_output('hostname').strip()
+    try:
+        os.remove(STATE_DIR + "/one-time-setup.done")
+    except Exception as inst:
+        print "Done."
+
+    print "Restarting WiFi access point. Please wait..."
+    print ""
+
+    subprocess.call("systemctl stop wpa_supplicant && systemctl disable wpa_supplicant &> /dev/null", shell=True)
+    subprocess.call("systemctl restart hostapd", shell=True)
+    subprocess.call("systemctl enable hostapd &> /dev/null", shell=True)
+
+    myssid = subprocess.check_output("grep -o '^ssid=.*' /etc/hostapd/hostapd.conf | awk -F'=' '{print $2}'", shell=True)
+
+    print "From your PC or laptop, connect to the", "'" + myssid.strip() + "' network "
+    print "and visit",  "'" + hostname + ".local' in the browser"
+
+def disableOneTimeSetup():
+      if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) != 0:
+        subprocess.call("systemctl disable hostapd &> /dev/null", shell=True)
+      else:
+        subprocess.call("systemctl stop hostapd && systemctl disable hostapd &> /dev/null && systemctl start wpa_supplicant", shell=True)
+
+      subprocess.call("systemctl enable wpa_supplicant &> /dev/null", shell=True)
+
+      oobe_done = open(STATE_DIR + "/one-time-setup.done", "w")
+      oobe_done.write("Indicates that one-time setup is disabled.\n")
+      oobe_done.close()
+
+def main():
+
+    parser = argparse.ArgumentParser(prog='configure_edison')
+
+    parser.add_argument('--server', help='Starts the server (testing only)', action='store_true', default=False)
+
+    root_group = parser.add_mutually_exclusive_group()
+
+    group_interactive = root_group.add_mutually_exclusive_group()
+    group_interactive.add_argument('--setup', dest='setup', help='Goes through changing the device name, password, and wifi options', action='store_true', default=False)
+    group_interactive.add_argument('--name', dest='name', help='Changes the device name', action='store_true', default=False)
+    group_interactive.add_argument('--password', dest='password', help='Changes the device password', action='store_true', default=False)
+    group_interactive.add_argument('--wifi', dest='wifi', help='Changes the wifi options', action='store_true', default=False)
+
+    group_non_interactive = root_group.add_mutually_exclusive_group()
+    group_non_interactive.add_argument('--showWiFiIP', dest='showwifiip', help='IP address associated with the wireless interface', action='store_true', default=False)
+    group_non_interactive.add_argument('--version', dest='version', help='Gets the current firmware version', action='store_true', default=False)
+    group_non_interactive.add_argument('--latest-version', dest='latestversion', help='Gets the latest firmware version', action='store_true', default=False)
+    group_non_interactive.add_argument('--upgrade', dest='upgrade', help='Downloads the latest firmware', action='store_true', default=False)
+    group_non_interactive.add_argument('--disableOneTimeSetup', dest='disableOneTimeSetup', help='Disable one-time setup and WiFi access point', action='store_true', default=False)
+    group_non_interactive.add_argument('--enableOneTimeSetup', dest='enableOneTimeSetup', help='Enable one-time setup and WiFi access point', action='store_true', default=False)
+    group_non_interactive.add_argument('--flash', metavar=('<version>','<release name>'), nargs='+', dest='otaflash', help='Downloads and flashes an image')
+
+    group_non_interactive.add_argument('--changePassword', metavar='password', dest='changepassword', const='', help=argparse.SUPPRESS, nargs='?')
+    group_non_interactive.add_argument('--changeName', metavar='name', dest='changename', help=argparse.SUPPRESS, nargs=1)
+    group_non_interactive.add_argument('--changeWiFi', metavar='securityType SSID [Identity | password]', dest='changewifi', help=argparse.SUPPRESS, nargs='+')
+
+    if len(sys.argv)==1:
+        parser.print_help()
+        sys.exit(1)
+
+    args = parser.parse_args()
+
+    if args.name:
+        reset("Device Name")
+        setEdisonHostname()
+
+    if args.password:
+        reset("Device Password")
+        setEdisonPassword()
+
+    if args.wifi:
+        connectNetwork()
+        if not os.path.isfile(STATE_DIR + "/one-time-setup.done"):
+            disableOneTimeSetup()
+
+    if args.setup:
+        full()
+
+    if args.version:
+        try:
+            build_type, version = getCurrentFirmwareInfo()
+            print version
+        except Exception as inst:
+            print >> sys.stderr, "Could not determine firmware version information. Quitting."
+            print "none"
+
+    if args.latestversion:
+        try:
+            latestversion, sha1, url = getLatestFirmwareInfo()
+            print latestversion
+        except Exception as inst:
+            print >> sys.stderr, "Could not retrieve latest firmware version information. Quitting."
+            print "none"
+
+    if args.upgrade:
+        try:
+            upgrade()
+        except Exception as inst:
+            print "Could not upgrade device firmware. Quitting."
+            return -1
+
+    if args.otaflash != None:
+        version = None
+        sha1 = None
+        url = None
+
+        try:
+            if len(args.otaflash) == 1:
+                try:
+                    build_type, build_number = getCurrentFirmwareInfo()
+                    version, sha1, url = getSpecificFirmwareInfo(build_type, args.otaflash[0])
+                except Exception as inst:
+                    print >> sys.stderr, "Could not determine firmware verison information."
+                    raise
+            elif len(args.otaflash) == 2:
+                version, sha1, url = getSpecificFirmwareInfo(args.otaflash[1], args.otaflash[0])
+            else:
+                print "error: usage: configure_edison --flash <version> [ <release name> ]"
+        except Exception as inst:
+            print "Could not retrieve required firmware information. Quitting."
+            return -1
+
+        try:
+            doOTAFlash(url, sha1)
+        except Exception as inst:
+            print >> sys.stderr, type(inst)
+            print >> sys.stderr, inst
+            print "Could not flash device. Quitting."
+            return -1
+
+    if args.changepassword != None:
+        changePassword(args.changepassword)
+
+    if args.changename != None:
+        changeName(args.changename[0])
+
+    if args.showwifiip:
+        showWiFiIP()
+
+    if args.enableOneTimeSetup:
+        enableOneTimeSetup()
+
+    if args.disableOneTimeSetup:
+        disableOneTimeSetup()
+
+    if args.changewifi != None:
+        network_conf = configureNetworkAP(args.changewifi)
+        if network_conf != None:
+            setNetwork(network_conf, args.changewifi[1])
 
 
-def help():
-  print '''
-  Interactive configuration options:
-    (none)                  Goes through changing the device name, password, and wifi options.
-    --name or -n            Changes the device name
-    --password or -p        Changes the device password
-    --wifi or -w            Changes the wifi options
-  
-  Non-interactive configuration options
-    --changePassword        Changes the device password to the following argument
-    --changeName            Changes the device name to the following argument
+    #print 'setup = ',args.setup
+    #print 'name = ',args.name
+    #print 'password = ',args.password
+    #print 'wifi = ',args.wifi
 
-  Other options
-    --help or -h        Displays these help options
-    --server            Starts the server (testing only)
-  '''
+    #print 'showwifiip = ',args.showwifiip
+    #print 'version = ',args.version
+    #print 'latestversion = ',args.latestversion
+    #print 'upgrade = ',args.upgrade
+    #print 'disableOneTimeSetup = ',args.disableOneTimeSetup
+    #print 'enableOneTimeSetup = ',args.enableOneTimeSetup
+    #print 'otaflash = ',args.otaflash
+    #print 'changepassword = ',args.changepassword
 
-
-def main(argv):
-  current = argv[0]
-
-  if current == "--name" or current == '-n':
-    reset("Device Name")
-    setUsername()
-  elif current == "--password" or current == '-p':
-    reset("Device Password")
-    setPassword()
-  elif current == "--wifi" or current == '-w':
-    connectNetwork()
-  elif current == "--help" or current == '-h':
-    help()
-  elif current == "--changePassword":
-    if argv[1] > 1:
-      changePassword(argv[1])
-  elif current == "--changeName":
-    if argv[1] > 1:
-      changeName(argv[1])
-  elif current == "--changeWiFi":
-    #will not validate this one. Is validated in other programs.
-    setNetworkAP(argv)
-  elif current == "--server":
-    address = os.popen("ifconfig | grep -A1 'wlan0' | grep 'inet'| awk -F' ' '{ print $2 }' | awk -F':' '{ print $2 }'").read().rstrip()
-    os.system("node /usr/lib/oobe/oobe-server.js > ~/node.log &");
-    print "Connected. Please go to " + text_colors.CYAN + address + text_colors.END + " in your browser to check if this is correct."
-  else:
-    print "Incorrect input. Redirecting to --help"
-    help()
+    #print 'changename = ',args.changename
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-      main(sys.argv[1:])
-    else: 
-      full()
+      main()
