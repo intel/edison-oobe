@@ -5,6 +5,10 @@ var
   exec = require('child_process').exec,
   url = require('url');
 
+var site = __dirname + '/public';
+var payload, urlobj;
+var injectStatusAfter = '<h1>Edison One-time Setup</h1></a>';
+var injectPasswordSectionAfter = 'action="submitForm">';
 var supportedExtensions = {
   "css"   : "text/css",
   "xml"   : "text/xml",
@@ -19,55 +23,77 @@ var supportedExtensions = {
   "jpg"   : "image/jpeg",
   "png"   : "image/png"
 }
-
 var STATE_DIR = '/var/lib/edison_config_tools';
 
 function getContentType(filename) {
-
   var i = filename.lastIndexOf('.');
   if (i < 0) {
     return 'application/octet-stream';
   }
-
   return supportedExtensions[filename.substr(i+1).toLowerCase()] || 'application/octet-stream';
 }
 
-function setHost(name, res, req) {
-  if (!name || name.length < 5) {
-    res.end(injectStatus("The name is too short. It must be at least 5 characters long.", true));
-  } else {
-    exec("configure_edison --changeName " + name, function () {
-      if (req.headers.host.indexOf('.local') > -1) {
-        res.writeHead(302, {
-          'Location': "http://" + name + ".local/deviceNameChanged"
-        });
-        res.end();
-      } else {
-        res.end(injectStatus("Device name changed. To confirm, run 'hostname' on the device.", false));
-      }
-    });
+function injectStatus(in_text, statusmsg, iserr) {
+  var injectStatusAt = in_text.indexOf(injectStatusAfter) + injectStatusAfter.length;
+  var status = "";
+  if (statusmsg) {
+    if (iserr)
+      status = '<div class="status errmsg">' + statusmsg + '</div>';
+    else
+      status = '<div class="status">' + statusmsg + '</div>';
   }
+  return in_text.substring(0, injectStatusAt) + status + in_text.substring(injectStatusAt, in_text.length);
 }
 
-function setPass(params, res) {
+function inject(my_text, after_string, in_text) {
+  var at = in_text.indexOf(after_string) + after_string.length;
+  return in_text.substring(0, at) + my_text + in_text.substring(at, in_text.length);
+}
+
+function pageNotFound(res) {
+  res.statusCode = 404;
+  res.end("The page at " + urlobj.pathname + " was not found.");
+}
+
+// --- end utility functions
+
+function getStateBasedIndexPage() {
+  if (!fs.existsSync(STATE_DIR + '/password-setup.done')) {
+    return inject(fs.readFileSync(site + '/password-section.html', {encoding: 'utf8'}),
+      injectPasswordSectionAfter,
+      fs.readFileSync(site + '/index.html', {encoding: 'utf8'}));
+  }
+  return fs.readFileSync(site + '/index.html', {encoding: 'utf8'});
+}
+
+function setHost(params) {
+  if (!params.name) {
+    return {cmd: ""};
+  }
+
+  if (params.name.length < 5) {
+    return {failure: "The name is too short. It must be at least 5 characters long."};
+  }
+  return {cmd: "configure_edison --changeName " + params.name};
+}
+
+function setPass(params) {
+  if (fs.existsSync(STATE_DIR + '/password-setup.done')) {
+    return {cmd: ""};
+  }
   if (params.pass1 === params.pass2) {
-    if (params.pass1.length == 0) {
-      res.end(injectStatus("The password cannot be empty. Please try again.", true))
-      return;
+    if (params.pass1.length < 8 || params.pass1.length > 63) {
+      return {failure: "Passwords must be between 8 and 63 characters long. Please try again."};
     }
-    exec("configure_edison --changePassword " + params.pass1, function () {
-      res.end(injectStatus("The device password has been changed.", false));
-    });
-  } else {
-    res.end(injectStatus("Passwords do not match. Please try again.", true));
+    return {cmd: "configure_edison --changePassword " + params.pass1};
   }
+  return {failure: "Passwords do not match. Please try again."};
 }
 
-function setWiFi(params, res) {
-  var exec_cmd = null, errmsg = null;
-
+function setWiFi(params) {
+  var exec_cmd = null, errmsg = "Unknown error occurred.";
   if (!params.ssid) {
-    errmsg = "Please specify the network name.";
+    return {cmd: ""};
   } else if (!params.protocol) {
     errmsg = "Please specify the network protocol (Open, WEP, etc.)";
   } else if (params.protocol === "OPEN") {
@@ -93,130 +119,75 @@ function setWiFi(params, res) {
     errmsg = "The specified network protocol is not supported."
   }
 
-  console.log(exec_cmd);
-
   if (exec_cmd) {
-    res.end(injectStatus("Please wait while the device connects to '" + params.ssid +
-    "'. After about a minute, connect to '" + params.ssid + 
-    "' and click the header above.", false, 'index.html', 'ALL_DISABLED'));
-
-    exec(exec_cmd, function () {
-    });
-  } else if (errmsg) {
-    res.end(injectStatus(errmsg, true));
-  } else {
-    console.log(params);
-    res.end(injectStatus("Unknown error occurred.", true));
+    return {cmd: exec_cmd};
   }
+  return {failure: errmsg};
 }
 
-function appendIP_callLast(res) {
-  exec("configure_edison --showWiFiIP",
-    function (error, stdout, stderr) {
-      res.write('<ip>' + stdout + '</ip>');
-      res.end('</status>');
-    });
-}
+function submitForm(params, res, req) {
+  var calls = [setPass, setHost, setWiFi];
+  var result = null, commands = ['sleep 5'];
 
-function appendLatestVersion(res) {
-  exec("configure_edison --latest-version",
-    function (error, stdout, stderr) {
-      res.write('<latest_ver>' + stdout + '</latest_ver>');
-      appendIP_callLast(res);
-    });
-}
-
-function respondWithStatus(res) {
-  res.write('<status>');
-  exec("configure_edison --version",
-    function (error, stdout, stderr) {
-      res.write('<current_ver>' + stdout + '</current_ver>');
-      appendLatestVersion(res);
-    });
-}
-
-function doUpgrade() {
-  exec("configure_edison --disableOneTimeSetup",
-    function (error, stdout, stderr) {
-      exec("configure_edison --upgrade",
-        function (error, stdout, stderr) {
-        });
-    });
-}
-
-var site = __dirname + '/public';
-var payload, urlobj;
-var injectStatusAfter = '<h1>Edison One-time Setup</h1></a>';
-var injectStatusAt = fs.readFileSync(site + '/index.html', {encoding: 'utf8'}).indexOf(injectStatusAfter)
-  + injectStatusAfter.length;
-
-function getFile(filename) {
-  return fs.readFileSync(site + '/' + filename, {encoding: 'utf8'});
-}
-
-function injectStatus(statusmsg, iserr, filename, state) {
-  var data = null;
-
-  if (filename)
-    data = getFile(filename);
-  else
-    data = getFile('index.html');
-
-  var status = "";
-  if (statusmsg) {
-    if (iserr)
-      status = '<div class="status errmsg">' + statusmsg + '</div>';
-    else
-      status = '<div class="status">' + statusmsg + '</div>';
-  }
-
-  if (state) {
-    status += '<form id="input_state_form"><input name="input_state" type="hidden" value="' + state + '"></form>';
-  } else {
-    if (fs.existsSync(STATE_DIR + '/password-setup.done')) {
-      status += '<form id="input_state_form"><input name="input_state" type="hidden" value="ALL_ENABLED"></form>';
+  // check for errors and respond as soon as we find one
+  for (var i = 0; i < calls.length; ++i) {
+    result = calls[i](params, req);
+    if (result.failure) {
+      res.end(injectStatus(getStateBasedIndexPage(), result.failure, true));
+      return;
     }
+    commands.push(result.cmd);
   }
-  return data.substring(0, injectStatusAt) + status + data.substring(injectStatusAt, data.length);
-}
 
-function pageNotFound(res) {
-  res.statusCode = 404;
-  res.end("The page at " + urlobj.pathname + " was not found.");
+  // no errors occurred. Do success response.
+  exec ('hostname', function (error, stdout, stderr) {
+    var hostname = stdout;
+    var res_str;
+
+    if (params.name) {
+      hostname = params.name;
+    }
+
+    if (params.ssid) { // WiFi is being configured
+      res_str = fs.readFileSync(site + '/exit.html', {encoding: 'utf8'})
+    } else {
+      res_str = fs.readFileSync(site + '/exiting-without-wifi.html', {encoding: 'utf8'})
+    }
+
+    res_str = res_str.replace(/params_ssid/g, params.ssid);
+    res_str = res_str.replace(/params_hostname/g, hostname + ".local");
+    res_str = res_str.replace(/params_ap/g, hostname + "_ap_xxxxxxxx");
+    res.end(res_str);
+
+    // Now execute commands
+    commands.push("configure_edison --disableOneTimeSetup");
+    for (var i = 0; i < commands.length; ++i) {
+      if (!commands[i]) {
+        continue;
+      }
+      console.log("Executing command: " + commands[i]);
+      exec(commands[i], function(error, stdout, stderr) {
+        if (error) {
+          console.log("Error occurred:");
+          console.log(stderr);
+        }
+        console.log(stdout);
+      });
+    }
+  });
 }
 
 function handlePostRequest(req, res) {
   var params = qs.parse(payload);
-  if (urlobj.pathname === '/setHost') {
-    setHost(params.name, res, req);
-  } else if (urlobj.pathname === '/setPass') {
-    setPass(params, res)
-  } else if (urlobj.pathname === '/setWiFi') {
-    setWiFi(params, res);
-  } else if (urlobj.pathname === '/doExit') {
-    exec("configure_edison --showWiFiIP",
-      function (error, stdout, stderr) {
-        var myip = stdout.trim();
-        if (myip === "none")
-          res.end(getFile('exiting-without-wifi.html'));
-
-        setTimeout(
-          function () {
-            exec("configure_edison --disableOneTimeSetup",
-              function (error, stdout, stderr) {
-                if (myip !== "none")
-                  res.end(getFile('status.html'));
-              })
-          }, 5000);
-      });
-  } else if (urlobj.pathname === '/upgrade') {
-    doUpgrade();
-    res.end(getFile('doing_upgrade.html'));
+  if (urlobj.pathname === '/submitForm') {
+    submitForm(params, res, req);
   } else {
     pageNotFound(res);
   }
 }
 
+// main request handler. GET requests are handled here.
+// POST requests are handled in handlePostRequest()
 function requestHandler(req, res) {
 
   urlobj = url.parse(req.url, true);
@@ -234,21 +205,43 @@ function requestHandler(req, res) {
   }
 
   // GET request
-  if (!urlobj.pathname || urlobj.pathname === '/') {
+  if (!urlobj.pathname || urlobj.pathname === '/' || urlobj.pathname === '/index.html') {
     if (fs.existsSync(STATE_DIR + '/one-time-setup.done')) {
-      res.end(fs.readFileSync(site + '/status.html', {encoding: 'utf8'}));
-    } else if (fs.existsSync(STATE_DIR + '/password-setup.done')) {
-      res.end(injectStatus());
+      var res_str = fs.readFileSync(site + '/status.html', {encoding: 'utf8'});
+      var myhostname, myipaddr;
+      var cmd = 'configure_edison --showWiFiIP';
+      console.log("Executing: " + cmd);
+      exec(cmd, function (error, stdout, stderr) {
+        if (error) {
+          console.log("Error occurred:");
+          console.log(stderr);
+          myipaddr = "unknown";
+        } else {
+          myipaddr = stdout;
+        }
+        console.log(stdout);
+
+        cmd = 'hostname';
+        console.log("Executing: " + cmd);
+        exec(cmd, function (error, stdout, stderr) {
+          if (error) {
+            console.log("Error occurred:");
+            console.log(stderr);
+            myhostname = "unknown";
+          } else {
+            myhostname = stdout;
+          }
+          console.log(stdout);
+
+          res_str = res_str.replace(/params_ip/g, myipaddr);
+          res_str = res_str.replace(/params_hostname/g, myhostname);
+          res.end(res_str);
+        });
+      });
     } else {
-      res.end(fs.readFileSync(site + '/index.html', {encoding: 'utf8'}));
+      res.end(getStateBasedIndexPage());
     }
-  }
-  else if (urlobj.pathname === '/deviceNameChanged') {
-    res.end(injectStatus("Device name changed. To confirm, run 'hostname' on the device.", false));
-  } else if (urlobj.pathname === '/status') {
-    res.setHeader('content-type', getContentType(".xml"));
-    respondWithStatus(res);
-  } else {
+  } else { // for files like .css and images.
     if (!fs.existsSync(site + urlobj.pathname)) {
       pageNotFound(res);
       return;
@@ -263,6 +256,3 @@ function requestHandler(req, res) {
 }
 
 http.createServer(requestHandler).listen(80);
-
-
-

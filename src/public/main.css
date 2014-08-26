@@ -1,39 +1,38 @@
 html {
-  background-color: #0071c5;
-  padding: 0px;
-  margin: 0px;
+    background-color: #0062a8;
 }
+
 
 body {
-  font-family: intel-clear, tahoma, helvetica, sans-serif;
-  margin-right: auto;
-  margin-left: auto;
-  width: 100%;
-  max-width: 1000px;
-  margin-top: 0px;
-  position: relative;
-  top: 0px;
+    font-family: intel-clear, tahoma, helvetica, sans-serif;
 }
 
-.section {
-  padding: 30px;
-  background-color: white;
-  margin-top: 2px;
-  font-size: 0px;
-  margin-right: 5px;
-  margin-left: 5px;
+h1 {
+    margin: 0px;
+    color: gray;
+    font-size: 48px;
+    line-height: 76px;
+    font-weight: 200;
+    padding-top: 30px;
+    padding-bottom: 30px;
+    background: url('logo-intel.png') no-repeat 20px 5px;
+    background-color: #e3e3e3;
+    background-size: 160px;
+    text-align: center;
+    margin: 2px auto;
+    width: 1000px;
 }
 
 .status {
-    width: 980px;
-    display: inline-block;
+    width: 1000px;
     background-color: #FFFFCC;
-    padding: 5px;
-    margin-top: 2px;
-    margin-right: 5px;
-    margin-left: 5px;
+    padding: 0;
+    margin: 0 auto;
+    margin-bottom: 2px;
     font-size: 14px;
     text-align: center;
+    padding-top: 10px;
+    padding-bottom: 10px;
 }
 
 .errmsg {
@@ -41,41 +40,131 @@ body {
     font-weight: bold;
 }
 
-.half {
-  width: 420px;
-  display: inline-block;
-  font-size: 16px;
-  vertical-align: top;
-  padding-right: 30px;
+.section {
+    width: 1000px;
+    background-color: white;
+    margin: 0 auto;
+    padding-bottom: 20px;
 }
 
-h1 {
-  margin: 0px;
-  color: #939598;
-  font-size: 48px;
-  line-height: 76px;
-  font-weight: 200;
-  padding: 30px;
-  background: url('logo-intel.png') no-repeat 20px 5px;
-  background-color: #ebebeb;
-  background-size: 160px;
-  text-align: center;
-  margin-right: 5px;
-  margin-left: 5px;
+.header {
+    height: 20px;
+    font-size: 24px;
+    font-weight: 100;
+    padding: 20px;
+    background-color: #f6f6f6;
+    margin-bottom: 10px;
+    vertical-align: middle;
 }
 
-h2 {
-  font-size: 24px;
-  font-weight: 100;
+.content {
+    padding: 5px 0;
+    font-size: 14px;
 }
 
-p {
-  font-size: 14px;
-  font-weight: 100;
-  padding: 0px;
-  margin: 0px;
+.left {
+    width: 400px;
+    text-align: left;
+    vertical-align: top;
+    padding-right: 30px;
+    padding-left: 20px;
+    font-weight: 100;
 }
 
-.submit {
-  background-color: #00aeef;
+.middle {
+    width: 300px;
+    vertical-align: top;
+}
+
+.right {
+    width: 300px;
+    vertical-align: top;
+    text-align: left;
+}
+
+.divider {
+    width: 700px;
+    border: 1px solid #EBEBEB;
+    margin: 0 auto;
+}
+
+.textbox {
+    width: 270px;
+    height: 15px;
+    margin: 1px;
+}
+
+.selector {
+    width: 270px;
+}
+
+label {
+    display: inline-block;
+    height: 20px;
+    margin: 1px;
+}
+
+.submit_button {
+    color: #fff;
+    background-color: #00aeef;
+    font-size: 14px;
+    -webkit-appearance: button;
+    cursor: pointer;
+    position: relative;
+    min-width: 96px;
+    border-radius: 2px;
+    padding: 4px 12px;
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.15);
+    border-width: 0;
+    border-color: #0062ac;
+
+    display: inline-block;
+    margin-bottom: 0;
+    font-weight: normal;
+    text-align: center;
+    vertical-align: middle;
+
+    background-image: none;
+    border: 1px solid transparent;
+    white-space: normal;
+
+    line-height: 1.428571429;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -o-user-select: none;
+
+    box-sizing: border-box;
+}
+
+.submit_section {
+    width: 1000px;
+    margin: 0 auto;
+    text-align: center;
+    background-color: #f6f6f6;
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+.infoline {
+    width: 1000px;
+    background-color: white;
+    margin: 0 auto;
+    font-size: 16px;
+    font-weight: 100;
+    margin-bottom: 2px;
+    vertical-align: middle;
+}
+
+.infoline_column {
+    width: 500px;
+    padding: 20px;
+}
+
+.infoline_left {
+    text-align: right;
+}
+
+.infoline_right {
+    text-align: left;
 }

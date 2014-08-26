@@ -8,13 +8,19 @@
 <h1>Leaving One-time Setup</h1>
 
 <div class='section'>
-    <p>You have exited the one-time setup process without configuring WiFi network access. To return to the one-time
-        setup process, hold down the 'RM' button on the device for over 5 seconds.</p>
+    <div class="content" style="padding: 30px">
+        You have left the one-time setup process <i>without configuring WiFi network access</i>. To return to the
+        one-time setup process, follow the steps below:
 
-    <p>&nbsp;</p>
+        <ol>
+            <li>Press the 'RM' button on the breakout board for over 5 seconds</li>
+            <li>Reconnect this machine to the '<b>params_ap</b>' network</li>
+            <li>Visit '<b><a href="http://params_hostname">http://params_hostname</a></b>' in your browser</li>
+        </ol>
 
-    <p>Alternatively, you may connect to the device via its serial interface and
-    type 'configure_edison --wifi' on the command-line to connect to a wireless network.</p>
+        Alternatively, you can connect to the device via its serial port and run <code>confgure_edison --wifi</code>
+        on the command line. To learn about other configuration options, run <code>configure_edison --help</code>.
+    </div>
 </div>
 </body>
 </html>

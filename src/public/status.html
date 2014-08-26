@@ -1,80 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Device Status</title>
+    <title>Device Information</title>
     <link rel="stylesheet" type="text/css" href="main.css" media="screen"/>
-    <script>
-        window.onload = function getInfo() {
-            if (window.XMLHttpRequest)
-            {   // code for IE7+, Firefox, Chrome, Opera, Safari
-                reqobj = new XMLHttpRequest();
-            }
-            else
-            {   // code for IE6, IE5
-                reqobj = new ActiveXObject("Microsoft.XMLHTTP");
-            }
-
-            reqobj.open("GET","status",false);
-            reqobj.send();
-            xmlStatus=reqobj.responseXML;
-
-            var ipaddr = document.getElementById("ipaddr");
-            ipaddr.innerHTML = xmlStatus.getElementsByTagName("ip")[0].childNodes[0].nodeValue;
-
-            var cvstr = xmlStatus.getElementsByTagName("current_ver")[0].childNodes[0].nodeValue;
-            var lvstr = xmlStatus.getElementsByTagName("latest_ver")[0].childNodes[0].nodeValue;
-
-            var current_ver = document.getElementById("current_ver");
-            var latest_ver = document.getElementById("latest_ver");
-
-            if (cvstr !== 'none' && lvstr !== 'none') {
-                var cvint = parseInt(cvstr);
-                var lvint = parseInt(lvstr);
-
-                if (lvint > cvint) {
-                    var upgrade_button = document.getElementById("upgrade_button");
-                    upgrade_button.disabled = false;
-
-                    var upgrade_note = document.getElementById("upgrade_note");
-                    upgrade_note.style.color = 'black';
-                }
-
-                current_ver.innerHTML = cvint;
-                latest_ver.innerHTML = lvint;
-            } else {
-                current_ver.innerHTML = cvstr;
-                latest_ver.innerHTML = lvstr;
-            }
-        }
-    </script>
-    <noscript>This page needs Javascript support to function correctly. Please enable Javascript in your
-        browser.</noscript>
 </head>
 <body>
-<a href="/" style="text-decoration: none"><h1>Device Status</h1></a>
-<div class='section'>
-    <div class="half" style="text-align: right">
-        <p>Device IP Address:</p>
-    </div>
-    <div class="half">
-        <p id="ipaddr">Getting IP address...</p>
-    </div>
-</div>
-<div class="section">
-    <div class="half" style="text-align: right">
-        <p>Current Version:</p>
-        <p>Latest Version:</p>
-    </div>
-    <div class="half">
-        <p id="current_ver">Getting current version...</p>
-        <p id="latest_ver">Getting new version...</p>
-        <form method="post" action="upgrade">
-            <input disabled type=submit id="upgrade_button" style="margin-top: 10px; margin-left: 0" value="Upgrade">
-        </form>
-        <i id="upgrade_note" style="color: gray">(Please backup all personal and customized configuration files. Also,
-            make sure the power cable and the USB cable closest to it remain connected for the duration of the
-            upgrade)</i>
-    </div>
-</div>
+<a href="/" style="text-decoration: none"><h1>Device Information</h1></a>
+    <table class="infoline">
+        <tr>
+            <td class="infoline_column infoline_left">Hostname:</td>
+            <td class="infoline_column infoline_right">params_hostname</td>
+        </tr>
+    </table>
+    <table class="infoline">
+        <tr>
+            <td class="infoline_column infoline_left">IP Address:</td>
+            <td class="infoline_column infoline_right">params_ip</td>
+        </tr>
+    </table>
 </body>
 </html>

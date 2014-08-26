@@ -242,16 +242,23 @@ def setEdisonHostname():
 
 def setEdisonPassword():
    while 1:
-     password = getPassword("Enter a new password (leave empty to skip.)\nThis will be used to connect to the access point and login to the device.\nPassword: \t")
+     password = getPassword("Enter a new password (leave empty to abort)\nThis will be used to connect to the access point and login to the device.\nPassword: \t")
      if (password == getPassword("Please enter the password again: \t")):
-         if len(password) > 0:
-             print "The device password has been changed.\n"
-             break
-         else:
+         if len(password) == 0:
              print "Skipping password change."
              return
+         elif len(password) < 8 or len(password) > 63:
+             print ""
+             print "The device password must be between 8 and 63 characters long. Please try again."
+             print ""
+         else:
+             print "The device password has been changed.\n"
+             break
      else:
-       print "The passwords do not match."
+       print ""
+       print "The passwords do not match. Please try again."
+       print ""
+
    changePassword(password)
 
 def decideToConnect():
@@ -820,6 +827,8 @@ def enableOneTimeSetup():
 
     myssid = subprocess.check_output("grep -o '^ssid=.*' /etc/hostapd/hostapd.conf | awk -F'=' '{print $2}'", shell=True)
 
+    subprocess.call("systemctl restart edison_config &> /dev/null", shell=True)
+    
     print "From your PC or laptop, connect to the", "'" + myssid.strip() + "' network "
     print "and visit",  "'" + hostname + ".local' in the browser"
 

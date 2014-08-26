@@ -1,30 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Edison One-time Setup</title>
+    <title>Leaving One-time Setup</title>
     <link rel="stylesheet" type="text/css" href="main.css" media="screen"/>
 </head>
 <body>
-<h1>Edison One-time Setup</h1>
+<h1>Leaving One-time Setup</h1>
 
-<div class='section' style="text-align: center">
-    <p>Are you sure you want to exit the one-time setup process?</p>
-    <p>(You can always return by pressing the WiFi 'reset' button &#8212; labeled 'RM' &#8212; on the device for
-        more than 5 seconds.)</p>
-    <table align="center" style="padding: 10px">
-        <tr>
-            <td>
-                <form method="POST" action="/doExit">
-                    <input type="submit" value="Yes">
-                </form>
-            </td>
-            <td>
-                <form action="/">
-                    <input type="submit" value="No">
-                </form>
-            </td>
-        </tr>
-    </table>
+<div class='section'>
+    <div class="content" style="padding: 30px">
+        Please wait while the device connects to 'params_ssid'. After about a minute, connect <i>this</i> machine to
+        '<b>params_ssid</b>' and visit <a href="http://params_hostname"><b>http://params_hostname</b></a> in your
+        browser.
+        <br><br>
+        If you are <i>unable to connect</i> to your device, you can try this setup again by following the steps below:
+
+        <ol>
+            <li>Press the 'RM' button on the breakout board for over 5 seconds</li>
+            <li>Reconnect this machine to the 'params_ap' network</li>
+            <li>Visit 'params_hostname' in your browser</li>
+        </ol>
+
+        Alternatively, you can connect to the device via its serial port and run <code>confgure_edison --wifi</code>
+        on the command line. To learn about other configuration options, run <code>configure_edison --help</code>.
+    </div>
 </div>
 </body>
 </html>
