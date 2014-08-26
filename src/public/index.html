@@ -36,13 +36,11 @@
 <body>
 <a href="/" style="text-decoration: none"><h1>Edison One-time Setup</h1></a>
 <div id='pass_section' class='section'>
-    <h2>Change Device Password</h2>
+    <h2>Set Device Password</h2>
     <div class='half'>
         <p>This changes the device password for both the access point and for root login.</p>
         <br>
-        <p><b>A root password must be set to enable SSH access to the device.</b> To enable SSH <i>without</i>
-            a root password, leave the fields empty and click 'Submit' (access point password will
-            remain unchanged).</p>
+        <p><b>A root password must be set to enable SSH access to the device.</b></p>
     </div>
     <div class='half'>
         <form id="pass_form" name="pass_form" method="post" action="setPass">
@@ -59,7 +57,7 @@
                 </tr>
                 <tr>
                     <td>
-
+                        <label for="pass2">Re-enter password:</label>
                     </td>
                     <td>
                         <input type="password" id="pass2" name="pass2" maxlength="63" size="40">
@@ -77,7 +75,7 @@
     </div>
 </div>
 <div id='name_section' class='section' style="color: gray">
-    <h2>Change Device Name</h2>
+    <h2>Set Device Name</h2>
 
     <div class='half'>
         <p>This changes the device name for the access point and for mDNS. This does not change the default login, which

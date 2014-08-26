@@ -51,11 +51,15 @@ function setHost(name, res, req) {
 
 function setPass(params, res) {
   if (params.pass1 === params.pass2) {
+    if (params.pass1.length == 0) {
+      res.end(injectStatus("The password cannot be empty. Please try again.", true))
+      return;
+    }
     exec("configure_edison --changePassword " + params.pass1, function () {
       res.end(injectStatus("The device password has been changed.", false));
     });
   } else {
-    res.end(injectStatus("Passwords do not match. Please try again."));
+    res.end(injectStatus("Passwords do not match. Please try again.", true));
   }
 }
 

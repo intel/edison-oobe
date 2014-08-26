@@ -241,14 +241,18 @@ def setEdisonHostname():
       changeName(name)
 
 def setEdisonPassword():
-  while 1:
-    password = getPassword("Enter a new password.\nThis will be used to connect to the access point and login to the device.\n - Leave empty to disable root password (won't change access point password). \nPassword: \t")
-    if (password == getPassword("Please enter the password again: \t")):
-        print "The device password has been changed.\n"
-        break
-    else:
-      print "The passwords do not match."
-  changePassword(password)
+   while 1:
+     password = getPassword("Enter a new password (leave empty to skip.)\nThis will be used to connect to the access point and login to the device.\nPassword: \t")
+     if (password == getPassword("Please enter the password again: \t")):
+         if len(password) > 0:
+             print "The device password has been changed.\n"
+             break
+         else:
+             print "Skipping password change."
+             return
+     else:
+       print "The passwords do not match."
+   changePassword(password)
 
 def decideToConnect():
   while 1:
