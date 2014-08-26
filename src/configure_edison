@@ -57,7 +57,7 @@ network={
   %s
   key_mgmt=NONE
   group=WEP104 WEP40
-  psk="%s"
+  wep_key0="%s"
 }
 '''
   WPAPSK =  '''
@@ -353,10 +353,14 @@ def configureHiddenNetwork(ssid):
     elif security == 1:
       password = ''
       while len(password) != 5 and len(password) != 13:
+        print "Password must be either 5 or 13 characters."
         password = getNetworkPassword()
       return wpa_templates.WEP % (ssid, "scan_ssid=1", password)
     elif security == 2:
-      password = getNetworkPassword()
+      password = ''
+      while len(password) < 8 or len(password) > 63:
+        print "Password must be between 8 and 63 characters."
+        password = getNetworkPassword()
       return wpa_templates.WPAPSK % (ssid, "scan_ssid=1", password)
     elif security == 3:
       identity = getNetworkIdentity()
@@ -372,10 +376,16 @@ def configureNetwork(choice,ssid_keys,network_map):
   if network_map[ssid] == "OPEN":
     return wpa_templates.OPEN % (ssid, "")
   elif network_map[ssid] == "WEP":
-    password = getNetworkPassword()
+    password = ''
+    while len(password) != 5 and len(password) != 13:
+        print "Password must be either 5 or 13 characters."
+        password = getNetworkPassword()
     return wpa_templates.WEP % (ssid, "", password)
   elif network_map[ssid] == "WPA-PSK":
-    password = getNetworkPassword()
+    password = ''
+    while len(password) < 8 or len(password) > 63:
+        print "Password must be between 8 and 63 characters."
+        password = getNetworkPassword()
     return wpa_templates.WPAPSK % (ssid, "", password)
   elif network_map[ssid] == "WPA-EAP":
     identity = getNetworkIdentity()
@@ -392,9 +402,15 @@ def configureNetworkAP(changewifi):
     return wpa_templates.OPEN % (ssid, "scan_ssid=1")
   elif protocol == "WEP":
     password = changewifi[2]
+    if len(password) != 5 and len(password) != 13:
+        print "Password must be either 5 or 13 characters."
+        return None
     return wpa_templates.WEP % (ssid, "scan_ssid=1", password)
   elif protocol == "WPA-PSK":
     password = changewifi[2]
+    if len(password) < 8 or len(password) > 63:
+        print "Password must be between 8 and 63 characters."
+        return None
     return wpa_templates.WPAPSK % (ssid, "scan_ssid=1", password)
   elif protocol == "WPA-EAP":
     if len(changewifi) != 4:

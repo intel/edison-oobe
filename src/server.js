@@ -78,11 +78,11 @@ function setWiFi(params, res) {
     else
       errmsg = "The supplied password must be 5 or 13 characters long.";
   } else if (params.protocol === "WPA-PSK") {
-    if (params.netpass) {
-      exec_cmd = "configure_edison --changeWiFi WPA-PSK '" + params.ssid + "' '" + params.netpass + "'";
-    } else {
-      errmsg = "Please specify the network password.";
-    }
+      if (params.netpass && params.netpass.length >= 8 && params.netpass.length <= 63) {
+        exec_cmd = "configure_edison --changeWiFi WPA-PSK '" + params.ssid + "' '" + params.netpass + "'";
+      } else {
+        errmsg = "Password must be between 8 and 63 characters long.";
+      }
   } else if (params.protocol === "WPA-EAP") {
       if (params.netuser && params.netpass)
         exec_cmd = "configure_edison --changeWiFi WPA-EAP '" + params.ssid + "' '" + params.netuser + "' '"
@@ -96,7 +96,7 @@ function setWiFi(params, res) {
   console.log(exec_cmd);
 
   if (exec_cmd) {
-    res.end(injectStatus("Please wait while the device connects to '" + params.ssid + 
+    res.end(injectStatus("Please wait while the device connects to '" + params.ssid +
     "'. After about a minute, connect to '" + params.ssid + 
     "' and click the header above.", false, 'index.html', 'ALL_DISABLED'));
 

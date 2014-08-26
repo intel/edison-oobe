@@ -34,6 +34,9 @@
                 if (lvint > cvint) {
                     var upgrade_button = document.getElementById("upgrade_button");
                     upgrade_button.disabled = false;
+
+                    var upgrade_note = document.getElementById("upgrade_note");
+                    upgrade_note.style.color = 'black';
                 }
 
                 current_ver.innerHTML = cvint;
@@ -68,8 +71,9 @@
         <form method="post" action="upgrade">
             <input disabled type=submit id="upgrade_button" style="margin-top: 10px; margin-left: 0" value="Upgrade">
         </form>
-        <i>(Make sure the power cable and the USB cable closest to it remain
-        connected for the duration of the upgrade)</i>
+        <i id="upgrade_note" style="color: gray">(Please backup all personal and customized configuration files. Also,
+            make sure the power cable and the USB cable closest to it remain connected for the duration of the
+            upgrade)</i>
     </div>
 </div>
 </body>
