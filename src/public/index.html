@@ -3,6 +3,32 @@
 <head>
     <title>Edison One-time Setup</title>
     <link rel="stylesheet" type="text/css" href="main.css" media="screen"/>
+    <script type="text/javascript">
+        function displayWiFiInputs(protocol) {
+            if (protocol === 'WEP' || protocol === 'WPA-PSK') {
+                document.getElementById("netpasslabel").style.visibility="visible";
+                document.getElementById("netpass").style.visibility="visible";
+
+                document.getElementById("netuserlabel").style.visibility="hidden";
+                document.getElementById("netuser").style.visibility="hidden";
+            } else if (protocol === 'WPA-EAP') {
+                document.getElementById("netpasslabel").style.visibility="visible";
+                document.getElementById("netpass").style.visibility="visible";
+
+                document.getElementById("netuserlabel").style.visibility="visible";
+                document.getElementById("netuser").style.visibility="visible";
+            } else {
+                document.getElementById("netpasslabel").style.visibility="hidden";
+                document.getElementById("netpass").style.visibility="hidden";
+
+                document.getElementById("netuserlabel").style.visibility="hidden";
+                document.getElementById("netuser").style.visibility="hidden";
+            }
+        }
+    </script>
+    <noscript>
+        Please enable Javascript. It is needed for this page to work correctly. Thank you.
+    </noscript>
 </head>
 <body>
 <a href="/" style="text-decoration: none"><h1>Edison One-time Setup</h1></a>
@@ -32,19 +58,20 @@
                 <td class="middle">
                     <label for="ssid">Network Name:</label><br>
                     <label for="protocol">Network Protocol:</label><br>
-                    <label for="netuser">Username:</label><br>
-                    <label for="netpass">Password:</label>
+                    <label id="netpasslabel" for="netpass" style="visibility: hidden">Password:</label><br>
+                    <label id="netuserlabel" for="netuser" style="visibility: hidden">Username:</label>
                 </td>
                 <td class="right">
                     <input type="text" id="ssid" name="ssid" class="textbox">
-                    <select id="protocol" name="protocol" class="selector">
+                    <select id="protocol" name="protocol" class="selector"
+                            onchange="displayWiFiInputs(document.getElementById('protocol').value)">
                         <option value="OPEN">Open</option>
                         <option value="WEP">WEP</option>
                         <option value="WPA-PSK">WPA-Personal or WPA2-Personal</option>
                         <option value="WPA-EAP">WPA-Enterprise or WPA2-Enterprise</option>
                     </select>
-                    <input type="text" id="netuser" name="netuser" class="textbox">
-                    <input type="password" id="netpass" name="netpass" class="textbox">
+                    <input type="password" id="netpass" name="netpass" class="textbox" style="visibility: hidden">
+                    <input type="text" id="netuser" name="netuser" class="textbox" style="visibility: hidden">
                 </td>
             </tr>
         </table>
