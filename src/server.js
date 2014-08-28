@@ -140,12 +140,22 @@ function submitForm(params, res, req) {
   }
 
   // no errors occurred. Do success response.
-  exec ('hostname', function (error, stdout, stderr) {
-    var hostname = stdout;
+  exec ('configure_edison --showNames', function (error, stdout, stderr) {
+    var nameobj = {hostname: "unknown", ssid: "unknown"};
+    try {
+      nameobj = JSON.parse(stdout);
+    } catch (ex) {
+      console.log("Could not parse output of configure_edison --showNames (may not be valid JSON)");
+      console.log(ex);
+    }
+
+    var hostname = nameobj.hostname;
+    var ssid = nameobj.ssid;
     var res_str;
 
     if (params.name) {
       hostname = params.name;
+      ssid = params.name;
     }
 
     if (params.ssid) { // WiFi is being configured
@@ -154,9 +164,9 @@ function submitForm(params, res, req) {
       res_str = fs.readFileSync(site + '/exiting-without-wifi.html', {encoding: 'utf8'})
     }
 
-    res_str = res_str.replace(/params_ssid/g, params.ssid);
+    res_str = res_str.replace(/params_ssid/g, ssid);
     res_str = res_str.replace(/params_hostname/g, hostname + ".local");
-    res_str = res_str.replace(/params_ap/g, hostname + "_ap_xxxxxxxx");
+    res_str = res_str.replace(/params_ap/g, hostname);
     res.end(res_str);
 
     // Now execute commands
