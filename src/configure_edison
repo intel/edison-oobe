@@ -20,9 +20,10 @@ import termios
 import fcntl
 import subprocess
 import signal
-import urllib
+import urllib2
 import hashlib
 import argparse
+import json
 from array import *
 
 DESTINATION_PATH = "/tmp/"
@@ -539,10 +540,11 @@ def getCurrentFirmwareInfo():
     return (ver_str.split('_')[0], ver_str.split('_')[2])
 
 def parseFirmwareInfo(firmwareinfo, build_type):
-    count = 0;
+    fwInfoObj = json.loads(firmwareinfo)
 
+    count = 0;
     # get version number
-    strarray = firmwareinfo.split("/")
+    strarray = fwInfoObj["url"].split("/")
     while (count < len(strarray)):
         if strarray[count] == build_type:
             break
@@ -550,21 +552,7 @@ def parseFirmwareInfo(firmwareinfo, build_type):
             count += 1
     count += 1
 
-    # get url
-    urlstart = firmwareinfo.find('<url>\"')
-    urlstart = urlstart + len('<url>\"')
-    url = firmwareinfo[urlstart:]
-    urlend = url.find('\"</url>')
-    url = url[:urlend]
-
-    # get hash
-    start = firmwareinfo.find('<hash>\"')
-    start = start + len('<hash>\"')
-    sha1FromServer = firmwareinfo[start:]
-    end = sha1FromServer.find('\"</hash>')
-    sha1FromServer = sha1FromServer[:end]
-
-    return (strarray[count], sha1FromServer, url)
+    return (strarray[count], fwInfoObj["hash"], fwInfoObj["url"])
 
 def getLatestFirmwareInfo():
     build_type = None
@@ -577,30 +565,37 @@ def getLatestFirmwareInfo():
         raise
 
     build_url = "http://ndgfirmwareupdate-env.elasticbeanstalk.com/getLatestFirmwareUpdateURL?product=" + build_type
-    filehandle = urllib.urlopen(build_url)
+    request = urllib2.Request(build_url)
+    request.add_header("Accept", "application/json")
+    filehandle = urllib2.urlopen(request)
     response = filehandle.read()
     return parseFirmwareInfo(response, build_type)
 
 def getSpecificFirmwareInfo(build_type, build_number):
     build_url = "http://ndgfirmwareupdate-env.elasticbeanstalk.com/getFirmwareUpdateURL?product=" + build_type + "&version=" + build_number
-    filehandle = urllib.urlopen(build_url)
+    request = urllib2.Request(build_url)
+    request.add_header("Accept", "application/json")
+    filehandle = urllib2.urlopen(request)
     response = filehandle.read()
     return parseFirmwareInfo(response, build_type)
 
 def removeFolderContents(folder_path):
     try:
-        for folder_item in os.listdir(folder_path):
-            item_path = os.path.join(folder_path, folder_item)
-            os.unlink(item_path)
-    except Exception, e:
-        pass
+        # remove the entire contents of the folder including files, hidden files, sub-folders, hidden sub-folders and their contents
+        # excluding . and .. folders which are system files to denote current directory and parent directory
+        ret_value = subprocess.call("rm -rf " + folder_path + "/* " + folder_path + "/.[!.]* " + folder_path + "/..?*", shell=True)
+        if ret_value != 0:
+            #this is not expected to happen ever !!
+            print "Could not remove previous installation files"
+            print "Please reboot the device to return to normal."
+            return -1
+    except Exception as inst:
+        print "Error: Exception while removing previous installation files."
+        print >> sys.stderr, type(inst)
+        print >> sys.stderr, inst
+        return -1
 
-def removeFolder(folder_path):
-    removeFolderContents(folder_path)
-    try:
-        os.rmdir(folder_path)
-    except Exception, e:
-        pass
+    return 0
 
 def removePackage():
     try:
@@ -610,7 +605,7 @@ def removePackage():
 
 def signal_term_handler(signal, handler):
     removePackage()
-    removeFolder("/update")
+    removeFolderContents("/update")
     sys.exit(0)
 
 def err_downloadPackage():
@@ -620,37 +615,37 @@ def err_downloadPackage():
 def err_createDestPackage():
     print "Could not create destination folder. Unable to proceed."
     removePackage()
-    removeFolder("/update")
+    removeFolderContents("/update")
 
 def err_unloadKernelModules():
     print "Could not unload kernel modules. Unable to proceed."
     print "Please reboot the device to return to normal."
     removePackage()
-    removeFolder("/update")
+    removeFolderContents("/update")
 
 def err_setupLoopDevice():
     print "Could not setup loop device. Unable to proceed"
     print "Please reboot the device to return to normal."
     removePackage()
-    removeFolder("/update")
+    removeFolderContents("/update")
 
 def err_mountDevice():
     print "Could not perform mount operation. Unable to proceed"
     print "Please reboot the device to return to normal."
     removePackage()
-    removeFolder("/update")
+    removeFolderContents("/update")
 
 def err_extractPackage():
     print "Could not extract the package. Unable to proceed"
     print "Please reboot the device to return to normal."
     removePackage()
-    removeFolder("/update")
+    removeFolderContents("/update")
 
 def err_umountDevice():
     print "Could not perform umount operation. Unable to proceed"
     print "Please reboot the device to return to normal."
     removePackage()
-    removeFolder("/update")
+    removeFolderContents("/update")
 
 def genSha1ForFile(file_path):
     chunkSize = 524288 # 512 KB chunk
@@ -744,7 +739,11 @@ def doOTAFlash(packageUrl, sha1FromServer):
 
             if os.listdir("/update") != []:
                 print "Removing previous installation files"
-                removeFolderContents("/update")
+                ret_value = removeFolderContents("/update")
+                if ret_value != 0:
+                    print "Please reboot the device to return to normal."
+                    removePackage()
+                    return -1
 
             try:
                 ret_value = subprocess.call("unzip -o " + DESTINATION_PATH + "package.zip -d /update", shell=True)
@@ -775,21 +774,21 @@ def doOTAFlash(packageUrl, sha1FromServer):
                 print "Could not perform reboot ota operation"
                 print "Please reboot the device to return to normal."
                 removePackage()
-                removeFolder("/update")
+                removeFolderContents("/update")
                 return -1
             #notify user that update will take few minutes and that he shouldn't remove power supply
     except KeyboardInterrupt:
         print ""
         print "Interrupted by user. Cleaning up."
         removePackage()
-        removeFolder("/update")
+        removeFolderContents("/update")
         print "Please reboot the device to return to normal."
     except Exception as inst:
         print "Exception occurred while upgrading. Cleaning up."
         print >> sys.stderr, type(inst)
         print >> sys.stderr, inst
         removePackage()
-        removeFolder("/update")
+        removeFolderContents("/update")
         print "Please reboot the device to return to normal."
 
 def upgrade():
