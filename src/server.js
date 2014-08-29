@@ -150,12 +150,12 @@ function submitForm(params, res, req) {
     }
 
     var hostname = nameobj.hostname;
-    var ssid = nameobj.ssid;
     var res_str;
+    var device_ap_ssid = nameobj.ssid;
 
     if (params.name) {
       hostname = params.name;
-      ssid = params.name;
+      device_ap_ssid = params.name;
     }
 
     if (params.ssid) { // WiFi is being configured
@@ -164,9 +164,9 @@ function submitForm(params, res, req) {
       res_str = fs.readFileSync(site + '/exiting-without-wifi.html', {encoding: 'utf8'})
     }
 
-    res_str = res_str.replace(/params_ssid/g, ssid);
+    res_str = res_str.replace(/params_ssid/g, params.ssid); // leaves exiting-without-wifi.html unchanged
     res_str = res_str.replace(/params_hostname/g, hostname + ".local");
-    res_str = res_str.replace(/params_ap/g, hostname);
+    res_str = res_str.replace(/params_ap/g, device_ap_ssid);
     res.end(res_str);
 
     // Now execute commands
