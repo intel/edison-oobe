@@ -704,8 +704,10 @@ def doOTAFlash(packageUrl, sha1FromServer):
 
             #notify user that partition will be disconnected from computer if plugged
             try:
+                ret_value_clloader = subprocess.call("systemctl stop clloader", shell=True)
+                ret_value_pm = subprocess.call("echo on > /sys/devices/pci0000:00/0000:00:11.0/dwc3-device.1/power/control", shell=True)
                 ret_value = subprocess.call("rmmod g_multi", shell=True)
-                if ret_value != 0:
+                if ret_value_clloader != 0 or ret_value_pm != 0 or ret_value != 0:
                     err_unloadKernelModules()
                     return -1
             except Exception as inst:
