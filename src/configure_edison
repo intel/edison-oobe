@@ -476,7 +476,10 @@ def checkNetwork():
     time.sleep(1)
     address = os.popen("ifconfig | grep -A1 'wlan0' | grep 'inet'| awk -F' ' '{ print $2 }' | awk -F':' '{ print $2 }'").read().rstrip()
     if not address == "":
-      print "Done. Please connect your laptop or PC to the same network as this device and go to " + text_colors.CYAN + address + text_colors.END + " in your browser."
+      print "Done. Please connect your laptop or PC to the same network as this device and go to " + \
+        text_colors.CYAN + "http://" + address + text_colors.END + " or " + text_colors.CYAN + \
+        "http://" + subprocess.check_output('hostname').strip() + ".local" + text_colors.END + \
+        " in your browser."
       break
     if i == 0:
       print "Not connected. Something went wrong."
