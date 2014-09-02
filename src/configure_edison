@@ -445,18 +445,19 @@ def setNetwork(network_conf, ssid):
     wpa_supplicant.write(network_conf)
     wpa_supplicant.close();
 
-    print "Initiating connection to " + ssid + "..."
+    print "Initiating connection to " + ssid + ". Please wait..."
 
     try:
         if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) == 0:
           subprocess.call("systemctl stop hostapd &> /dev/null", shell=True)
           subprocess.call("systemctl start wpa_supplicant &> /dev/null", shell=True)
-          subprocess.call("sleep 10", shell=True)
+          time.sleep(10)
         else:
           subprocess.call("wpa_cli reconfigure &> /dev/null && sleep 2", shell=True)
 
         network_count = int(subprocess.check_output('wpa_cli list_networks | wc -l', shell=True))
         subprocess.call("wpa_cli select_network " + str(network_count - 2 - 1) + " &> /dev/null", shell=True)
+        time.sleep(5)
 
         ifarray = subprocess.check_output("wpa_cli ifname", shell=True).split()
         subprocess.call("udhcpc -i " + ifarray[len(ifarray)-1] + " -n &> /dev/null", shell=True)
