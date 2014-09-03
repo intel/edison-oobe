@@ -8,7 +8,7 @@ var
 var site = __dirname + '/public';
 var payload, urlobj;
 var injectStatusAfter = '<h1>Edison One-time Setup</h1></a>';
-var injectPasswordSectionAfter = 'action="submitForm">';
+var injectPasswordSectionAfter = 'onsubmit="saveFields()">';
 var supportedExtensions = {
   "css"   : "text/css",
   "xml"   : "text/xml",

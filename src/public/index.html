@@ -25,6 +25,30 @@
                 document.getElementById("netuser").style.visibility="hidden";
             }
         }
+
+        function saveFields() {
+            document.cookie = '{"name": "' + document.getElementById("name").value + '",' +
+                    '"ssid": "' + document.getElementById("ssid").value + '",' +
+                    '"protocol": "' + document.getElementById("protocol").value + '",' +
+                    '"netuser": "' + document.getElementById("netuser").value + '"' +
+                    '}';
+        }
+
+        window.onload = function () {
+            // restore any saved fields
+
+            if (!document.cookie)
+                return;
+
+            var savedFields = JSON.parse(document.cookie);
+
+            document.getElementById("name").value = savedFields.name;
+            document.getElementById("ssid").value = savedFields.ssid;
+            document.getElementById("protocol").value = savedFields.protocol;
+            document.getElementById("netuser").value = savedFields.netuser;
+
+            displayWiFiInputs(savedFields.protocol);
+        };
     </script>
     <noscript>
         Please enable Javascript. It is needed for this page to work correctly. Thank you.
@@ -32,7 +56,7 @@
 </head>
 <body>
 <a href="/" style="text-decoration: none"><h1>Edison One-time Setup</h1></a>
-<form id="setup_form" name="setup_form" method="post" action="submitForm">
+<form id="setup_form" name="setup_form" method="post" action="submitForm" onsubmit="saveFields()">
     <div id="name_section" class="section">
         <div class="header">Change Device Name</div>
         <table class="content">
