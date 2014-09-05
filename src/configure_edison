@@ -181,17 +181,9 @@ def _changeHostName(newName):
   hostname_file.close();
   subprocess.call("hostname -F /etc/hostname", shell=True)
 
-def disableAPDefaults():
-  if (not os.path.isfile(STATE_DIR + "/ap-setup.done")):
-    ap_done = open(STATE_DIR + "/ap-setup.done", "w")
-    ap_done.write("Indicates that AP ssid and passphrase have been changed via oobe.\n")
-    ap_done.close()
-    subprocess.call("sed -i 's/^ExecStartPre=\/etc\/hostapd\/hostapd_ssid.sh/# ExecStartPre=\/etc\/hostapd\/hostapd_ssid.sh/g' /lib/systemd/system/hostapd.service ; sync ; systemctl daemon-reload", shell=True)
-
 def _changeAPSSID(newName):
   os.popen("sed -i 's/^ssid=.*/ssid=%s/' /etc/hostapd/hostapd.conf" % (newName))
   subprocess.call("systemctl restart mdns && sleep 2", shell=True)
-  disableAPDefaults()
 
 def changePassword(newPass):
   _changeRootPassword(newPass)
@@ -210,7 +202,6 @@ def _changeRootPassword(newPass):
 
 def _changeAPPassword(newPass):
   os.popen("sed -i 's/^wpa_passphrase=.*/wpa_passphrase=%s/' /etc/hostapd/hostapd.conf" % (newPass))
-  disableAPDefaults()
 
 def getNetworkIdentity():
   return raw_input("Please enter the network username: ")
