@@ -275,11 +275,11 @@ def scanForNetworks():
   stdout.write("Starting scan\r")
   stdout.flush()
   os.popen("systemctl stop hostapd && sleep 2 && systemctl start wpa_supplicant")
-  r = range(9,0,-1)
+  r = range(10,0,-1)
   for i in r:
     stdout.write("Scanning: %s seconds left\r" % i)
     stdout.flush()
-    if i == 4:
+    if i == 6:
       os.popen("wpa_cli scan")
     time.sleep(1)
   data = os.popen("wpa_cli scan_results").read().split("\n")
