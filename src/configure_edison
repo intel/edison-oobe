@@ -759,6 +759,9 @@ def doOTAFlash(packageUrl, sha1FromServer):
                 return -1
 
             #subprocess.call("losetup -d /dev/loop0", shell=True)
+            print "Ready to upgrade. Rebooting device..."
+            time.sleep(2)
+
             ret_value = subprocess.call("reboot ota", shell=True)
             if ret_value != 0:
                 #this is not expected to happen ever !!
