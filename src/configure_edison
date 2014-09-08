@@ -831,6 +831,7 @@ def enableOneTimeSetup():
     print "Restarting WiFi access point. Please wait..."
     print ""
 
+    subprocess.call("systemctl start blink-led && systemctl enable blink-led &> /dev/null", shell=True)
     subprocess.call("systemctl stop wpa_supplicant && systemctl disable wpa_supplicant &> /dev/null", shell=True)
     subprocess.call("systemctl restart hostapd", shell=True)
     subprocess.call("systemctl enable hostapd &> /dev/null", shell=True)
@@ -853,6 +854,8 @@ def disableOneTimeSetup():
       oobe_done = open(STATE_DIR + "/one-time-setup.done", "w")
       oobe_done.write("Indicates that one-time setup is disabled.\n")
       oobe_done.close()
+
+      subprocess.call("systemctl stop blink-led && systemctl disable blink-led &> /dev/null", shell=True)
 
 def showNames():
     hostname = subprocess.check_output('hostname', shell=True).strip()
