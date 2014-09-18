@@ -822,6 +822,8 @@ def getSSID():
     return subprocess.check_output("grep -o '^ssid=.*' /etc/hostapd/hostapd.conf | awk -F'=' '{print $2}'", shell=True).strip()
 
 def enableOneTimeSetup():
+    subprocess.call("systemctl start blink-led && systemctl enable blink-led &> /dev/null", shell=True)
+
     hostname = subprocess.check_output('hostname').strip()
     try:
         os.remove(STATE_DIR + "/one-time-setup.done")
@@ -831,7 +833,6 @@ def enableOneTimeSetup():
     print "Restarting WiFi access point. Please wait..."
     print ""
 
-    subprocess.call("systemctl start blink-led && systemctl enable blink-led &> /dev/null", shell=True)
     subprocess.call("systemctl stop wpa_supplicant && systemctl disable wpa_supplicant &> /dev/null", shell=True)
     subprocess.call("systemctl restart hostapd", shell=True)
     subprocess.call("systemctl enable hostapd &> /dev/null", shell=True)
@@ -844,6 +845,8 @@ def enableOneTimeSetup():
     print "and visit",  "'" + hostname + ".local' in the browser"
 
 def disableOneTimeSetup():
+      subprocess.call("systemctl stop blink-led && systemctl disable blink-led &> /dev/null", shell=True)
+
       if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) != 0:
         subprocess.call("systemctl disable hostapd &> /dev/null", shell=True)
       else:
@@ -854,8 +857,6 @@ def disableOneTimeSetup():
       oobe_done = open(STATE_DIR + "/one-time-setup.done", "w")
       oobe_done.write("Indicates that one-time setup is disabled.\n")
       oobe_done.close()
-
-      subprocess.call("systemctl stop blink-led && systemctl disable blink-led &> /dev/null", shell=True)
 
 def showNames():
     hostname = subprocess.check_output('hostname', shell=True).strip()
