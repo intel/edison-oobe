@@ -555,7 +555,7 @@ def getLatestFirmwareInfo():
         print >> sys.stderr, "Could not determine firmware version information."
         raise
 
-    build_url = "http://ndgfirmwareupdate-env.elasticbeanstalk.com/getLatestFirmwareUpdateURL?product=" + build_type
+    build_url = "http://software.wearables.intel.com/getLatestFirmwareUpdateURL?product=" + build_type
     request = urllib2.Request(build_url)
     request.add_header("Accept", "application/json")
     filehandle = urllib2.urlopen(request)
@@ -563,7 +563,7 @@ def getLatestFirmwareInfo():
     return parseFirmwareInfo(response, build_type)
 
 def getSpecificFirmwareInfo(build_type, build_number):
-    build_url = "http://ndgfirmwareupdate-env.elasticbeanstalk.com/getFirmwareUpdateURL?product=" + build_type + "&version=" + build_number
+    build_url = "http://software.wearables.intel.com/getFirmwareUpdateURL?product=" + build_type + "&version=" + build_number
     request = urllib2.Request(build_url)
     request.add_header("Accept", "application/json")
     filehandle = urllib2.urlopen(request)
