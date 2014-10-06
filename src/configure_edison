@@ -807,10 +807,10 @@ def upgrade():
         print "The latest version is already installed."
 
 def full():
-  reset("Device Name")
-  setEdisonHostname()
   reset("Device Password")
   setEdisonPassword()
+  reset("Device Name")
+  setEdisonHostname()
   if decideToConnect():
     connectNetwork()
     if not os.path.isfile(STATE_DIR + "/one-time-setup.done"):
