@@ -28,6 +28,7 @@ from array import *
 
 DESTINATION_PATH = "/tmp/"
 STATE_DIR = '/var/lib/edison_config_tools' # todo: change in bitbake
+CURR_PACKAGE_PATH = ""
 
 class text_colors:
   CYAN = '\033[96m'
@@ -589,14 +590,20 @@ def removeFolderContents(folder_path):
     return 0
 
 def removePackage():
+    global CURR_PACKAGE_PATH
     try:
-        os.remove(DESTINATION_PATH+"package.zip")
+        os.remove(CURR_PACKAGE_PATH)
     except Exception, e:
         pass
+    CURR_PACKAGE_PATH = ""
 
 def signal_term_handler(signal, handler):
     removePackage()
     removeFolderContents("/update")
+    sys.exit(0)
+
+def signal_term_handler_package_only(signal, handler):
+    removePackage()
     sys.exit(0)
 
 def err_downloadPackage():
@@ -648,13 +655,13 @@ def genSha1ForFile(file_path):
             buf = f.read(chunkSize)
     return sha.hexdigest()
 
-def downloadPackage(packageUrl, sha1FromServer):
-    ret_value = subprocess.call("curl --connect-timeout 10 "+ "'"+packageUrl+"'" + " >"+DESTINATION_PATH+"package.zip", shell=True)
+def downloadPackage(packageUrl, sha1FromServer, packagePath):
+    ret_value = subprocess.call("curl --connect-timeout 10 "+ "'"+packageUrl+"'" + " >"+packagePath, shell=True)
     if ret_value != 0:
         err_downloadPackage()
         return -1
 
-    shaOfDownloadedPkg = genSha1ForFile(DESTINATION_PATH + "package.zip")
+    shaOfDownloadedPkg = genSha1ForFile(packagePath)
 
     if sha1FromServer != shaOfDownloadedPkg:
         print "Could not establish integrity of downloaded firmware (hash mismatch). Unable to proceed"
@@ -663,23 +670,44 @@ def downloadPackage(packageUrl, sha1FromServer):
 
     return 0
 
-def doOTAFlash(packageUrl, sha1FromServer):
+def doOTAFlash(packageUrl, sha1FromServer, packagePath):
     if len(sha1FromServer) != 40:
         print "Could not establish integrity of latest firmware (bad hash). Unable to proceed."
         return -1
 
     try:
-            signal.signal(signal.SIGTERM, signal_term_handler)
+        signal.signal(signal.SIGTERM, signal_term_handler_package_only)
 
-            try:
-                ret_value = downloadPackage(packageUrl, sha1FromServer)
-                if ret_value != 0:
-                    return -1
-            except Exception as inst:
-                err_downloadPackage()
-                print >> sys.stderr, type(inst)
-                print >> sys.stderr, inst
+        try:
+            ret_value = downloadPackage(packageUrl, sha1FromServer, packagePath)
+            if ret_value != 0:
                 return -1
+        except Exception as inst:
+            err_downloadPackage()
+            print >> sys.stderr, type(inst)
+            print >> sys.stderr, inst
+            return -1
+
+        flashFile(packagePath)
+    except KeyboardInterrupt:
+        print ""
+        print "Interrupted by user. Cleaning up."
+        removePackage()
+        print "Please reboot the device to return to normal."
+    except Exception as inst:
+        print "Exception occurred while upgrading. Cleaning up."
+        print >> sys.stderr, type(inst)
+        print >> sys.stderr, inst
+        removePackage()
+        print "Please reboot the device to return to normal."
+
+def flashFile(packagePath):
+    if not os.path.isfile(packagePath):
+        print "Error: cannot upgrade. Package file " + packagePath + " does not exist."
+        return -1
+
+    try:
+            signal.signal(signal.SIGTERM, signal_term_handler)
 
             try:
                 ret_value = subprocess.call("mkdir -p /update", shell=True)
@@ -737,7 +765,7 @@ def doOTAFlash(packageUrl, sha1FromServer):
                     return -1
 
             try:
-                ret_value = subprocess.call("unzip -o " + DESTINATION_PATH + "package.zip -d /update", shell=True)
+                ret_value = subprocess.call("unzip -o " + packagePath + " -d /update", shell=True)
                 if ret_value != 0:
                     err_extractPackage()
                     return -1
@@ -865,6 +893,8 @@ def showNames():
 
 def main():
 
+    global CURR_PACKAGE_PATH
+
     parser = argparse.ArgumentParser(prog='configure_edison')
 
     parser.add_argument('--server', help='Starts the server (testing only)', action='store_true', default=False)
@@ -885,6 +915,7 @@ def main():
     group_non_interactive.add_argument('--disableOneTimeSetup', dest='disableOneTimeSetup', help='Disable one-time setup and WiFi access point', action='store_true', default=False)
     group_non_interactive.add_argument('--enableOneTimeSetup', dest='enableOneTimeSetup', help='Enable one-time setup and WiFi access point', action='store_true', default=False)
     group_non_interactive.add_argument('--flash', metavar=('<version>','<release name>'), nargs='+', dest='otaflash', help='Downloads and flashes an image')
+    group_non_interactive.add_argument('--flashFile', metavar=('<image-file>'), nargs=1, dest='flashfile', help='Flashes the given image (.zip).')
     group_non_interactive.add_argument('--changePassword', metavar='password', dest='changepassword', const='', help=argparse.SUPPRESS, nargs='?')
     group_non_interactive.add_argument('--changeName', metavar='name', dest='changename', help=argparse.SUPPRESS, nargs=1)
     group_non_interactive.add_argument('--changeWiFi', metavar='securityType SSID [Identity | password]', dest='changewifi', help=argparse.SUPPRESS, nargs='+')
@@ -961,13 +992,19 @@ def main():
             print "Could not retrieve required firmware information. Quitting."
             return -1
 
+        CURR_PACKAGE_PATH = DESTINATION_PATH + "package.zip"
+
         try:
-            doOTAFlash(url, sha1)
+            doOTAFlash(url, sha1, CURR_PACKAGE_PATH)
         except Exception as inst:
             print >> sys.stderr, type(inst)
             print >> sys.stderr, inst
             print "Could not flash device. Quitting."
             return -1
+
+    if args.flashfile != None:
+        CURR_PACKAGE_PATH = args.flashfile[0]
+        flashFile(CURR_PACKAGE_PATH)
 
     if args.changepassword != None:
         changePassword(args.changepassword)

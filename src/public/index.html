@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Edison One-time Setup</title>
+    <title>Edison Setup</title>
     <link rel="stylesheet" type="text/css" href="main.css" media="screen"/>
     <script type="text/javascript">
         function displayWiFiInputs(protocol) {
@@ -42,10 +42,14 @@
 
             var savedFields = JSON.parse(document.cookie);
 
-            document.getElementById("name").value = savedFields.name;
-            document.getElementById("ssid").value = savedFields.ssid;
-            document.getElementById("protocol").value = savedFields.protocol;
-            document.getElementById("netuser").value = savedFields.netuser;
+            if (savedFields.name)
+                document.getElementById("name").value = savedFields.name;
+            if (savedFields.ssid)
+                document.getElementById("ssid").value = savedFields.ssid;
+            if (savedFields.protocol)
+                document.getElementById("protocol").value = savedFields.protocol;
+            if (savedFields.netuser)
+                document.getElementById("netuser").value = savedFields.netuser;
 
             displayWiFiInputs(savedFields.protocol);
         };
@@ -55,8 +59,22 @@
     </noscript>
 </head>
 <body>
-<a href="/" style="text-decoration: none"><h1>Edison One-time Setup</h1></a>
-<form id="setup_form" name="setup_form" method="post" action="submitForm" onsubmit="saveFields()">
+<a href="/" style="text-decoration: none"><h1>Edison Setup</h1></a>
+<div class="menu">
+    <table>
+        <tr>
+            <td class="menuitem" style="background-color: lightgrey">
+                <a href="/" style="text-decoration: none; color: #0062a8">Configure</a>
+
+            </td>
+            <td class="menuitem">
+                <a href="upgrade.html" style="text-decoration: none; color:black">Upgrade</a>
+            </td>
+        </tr>
+    </table>
+</div>
+<!-- errors will go here -->
+<form id="setup_form" name="setup_form" method="POST" action="submitForm" onsubmit="saveFields()">
     <div id="name_section" class="section">
         <div class="header">Change Device Name</div>
         <table class="content">
