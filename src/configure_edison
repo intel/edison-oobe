@@ -174,6 +174,7 @@ def verified(selection):
 
 def changeName(newName):
   _changeHostName(newName)
+  _changeP2PSSID(newName)
   _changeAPSSID(newName)
 
 def _changeHostName(newName):
@@ -185,6 +186,9 @@ def _changeHostName(newName):
 def _changeAPSSID(newName):
   os.popen("sed -i 's/^ssid=.*/ssid=%s/' /etc/hostapd/hostapd.conf" % (newName))
   subprocess.call("systemctl restart mdns && sleep 2", shell=True)
+
+def _changeP2PSSID(newName):
+  os.popen("sed -i 's/^p2p_ssid_postfix=.*/p2p_ssid_postfix=%s/' /etc/wpa_supplicant/wpa_supplicant.conf" % (newName))
 
 def changePassword(newPass):
   _changeRootPassword(newPass)
