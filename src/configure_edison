@@ -282,7 +282,7 @@ def scanForNetworks():
   os.popen("systemctl stop hostapd && sleep 2 && systemctl start wpa_supplicant")
   r = range(10,0,-1)
   for i in r:
-    stdout.write("Scanning: %s seconds left\r" % i)
+    stdout.write("Scanning: %s seconds left \r" % i)
     stdout.flush()
     if i == 6:
       os.popen("wpa_cli scan")
@@ -314,9 +314,10 @@ def scanForNetworks():
 
 
 def selectNetwork(ssid_keys):
-  i = 1
+  i = 2
   print "0 :\tRescan for networks"
-  print "1 :\tManually input a hidden SSID"
+  print "1 :\tExit WiFi Setup"
+  print "2 :\tManually input a hidden SSID"
   for ssid in ssid_keys:
     i = i + 1
     print i, ":\t", ssid
@@ -325,12 +326,12 @@ def selectNetwork(ssid_keys):
   choice = -1
   while 1:
     try:
-      if i == 1:
-        choice = int(raw_input("\nEnter 0 to rescan for networks.\nEnter 1 to input a hidden network SSID: "))
-      elif i == 2:
-        choice = int(raw_input("\nEnter 0 to rescan for networks.\nEnter 1 to input a hidden network SSID.\nEnter 2 to choose %s: " % ssid_keys[0]))
+      if i == 2:
+        choice = int(raw_input("\nEnter 0 to rescan for networks.\nEnter 1 to exit.\nEnter 2 to input a hidden network SSID: "))
+      elif i == 3:
+        choice = int(raw_input("\nEnter 0 to rescan for networks.\nEnter 1 to exit.\nEnter 2 to input a hidden network SSID.\nEnter 3 to choose %s: " % ssid_keys[0]))
       else:
-        choice = int(raw_input("\nEnter 0 to rescan for networks.\nEnter 1 to input a hidden network SSID.\nEnter a number between 2 to %s to choose one of the listed network SSIDs: " % i))
+        choice = int(raw_input("\nEnter 0 to rescan for networks.\nEnter 1 to exit.\nEnter 2 to input a hidden network SSID.\nEnter a number between 3 to %s to choose one of the listed network SSIDs: " % i))
     except TypeError:
       choice = -1
     except ValueError:
@@ -339,8 +340,10 @@ def selectNetwork(ssid_keys):
     if choice == 0:
       break
     elif choice == 1:
+      sys.exit(0)
+    elif choice == 2:
       break
-    elif choice > 1 and choice <= i and verified(ssid_keys[choice-2]):
+    elif choice > 2 and choice <= i and verified(ssid_keys[choice-3]):
       break
   return choice
 
@@ -384,7 +387,7 @@ def configureHiddenNetwork(ssid):
 
 
 def configureNetwork(choice,ssid_keys,network_map):
-  ssid = ssid_keys[choice-2]
+  ssid = ssid_keys[choice-3]
   if network_map[ssid] == "OPEN":
     return wpa_templates.OPEN % (ssid, "")
   elif network_map[ssid] == "WEP":
@@ -493,7 +496,7 @@ def connectNetwork():
     choice = selectNetwork(ssid_keys)
 
     #choice is validated within selectNetwork.
-    if choice == 1:
+    if choice == 2:
       while 1:
           ssid = raw_input("Please enter the hidden network SSID: ")
           if verified(ssid):
@@ -502,7 +505,7 @@ def connectNetwork():
       break
     elif choice:
       network_conf = configureNetwork(choice, ssid_keys,network_map)
-      ssid = ssid_keys[choice-2]
+      ssid = ssid_keys[choice-3]
       break
 
   #print network_conf
