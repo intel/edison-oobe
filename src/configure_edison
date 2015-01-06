@@ -188,7 +188,7 @@ def _changeAPSSID(newName):
   subprocess.call("systemctl restart mdns && sleep 2", shell=True)
 
 def _changeP2PSSID(newName):
-  os.popen("sed -i 's/^p2p_ssid_postfix=.*/p2p_ssid_postfix=%s/' /etc/wpa_supplicant/wpa_supplicant.conf" % (newName))
+  os.popen("sed -i 's/^p2p_ssid_postfix=.*/p2p_ssid_postfix=%s/' /etc/wpa_supplicant/p2p_supplicant.conf" % (newName))
 
 def changePassword(newPass):
   _changeRootPassword(newPass)
