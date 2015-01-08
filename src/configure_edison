@@ -536,7 +536,7 @@ def getCurrentFirmwareInfo():
     f = open('/etc/version','r')
     ver_str = f.readline()
     f.close()
-    return (ver_str.split('_')[0], ver_str.split('_')[2])
+    return ("edison-" + ver_str.split('-')[0], ver_str.split('-')[1].splitlines()[0])
 
 def parseFirmwareInfo(firmwareinfo, build_type):
     fwInfoObj = json.loads(firmwareinfo)
