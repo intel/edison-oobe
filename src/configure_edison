@@ -820,7 +820,7 @@ def flashFile(packagePath):
         removeFolderContents("/update")
         print "Please reboot the device to return to normal."
 
-def upgrade():
+def upgrade(packagePath):
     curr = None
     build_type = None
 
@@ -837,7 +837,7 @@ def upgrade():
         raise
 
     if int(latest) > int(curr):
-        doOTAFlash(url, sha1)
+        doOTAFlash(url, sha1, packagePath)
     else:
         print "The latest version is already installed."
 
@@ -970,9 +970,12 @@ def main():
 
     if args.upgrade:
         try:
-            upgrade()
+            CURR_PACKAGE_PATH = DESTINATION_PATH + "package.zip"
+            upgrade(CURR_PACKAGE_PATH)
         except Exception as inst:
             print "Could not upgrade device firmware. Quitting."
+            print >> sys.stderr, type(inst)
+            print >> sys.stderr, inst
             return -1
 
     if args.shownames:
