@@ -2,7 +2,6 @@
 
 mkdir -p /usr/lib/edison_config_tools
 cp -r public /usr/lib/edison_config_tools
-cp -r node_modules /usr/lib/edison_config_tools
 cp server.js /usr/lib/edison_config_tools/edison-config-server.js
 
 cp edison_config.service /lib/systemd/system

@@ -287,6 +287,7 @@ def scanForNetworks():
     if i == 6:
       os.popen("wpa_cli scan")
     time.sleep(1)
+
   data = os.popen("wpa_cli scan_results").read().split("\n")
 
   print "\n"
@@ -297,7 +298,7 @@ def scanForNetworks():
     line = data.pop().split("\t")
     if (len(line) == 5):
       ssid = line.pop()
-      if ssid not in ssid_keys and not ssid == "":
+      if ssid not in ssid_keys and not ssid == "" and "\\x00" not in ssid:
         tokens = line.pop().replace("[","").split("]")[0].split("-")
         if tokens[0] == "WPA" or tokens[0] == "WPA2":
           if tokens[1] == "EAP":
@@ -308,7 +309,19 @@ def scanForNetworks():
           network_map[ssid] = "WEP"
         else:
           network_map[ssid] = "OPEN"
+
         ssid_keys.append(ssid)
+
+  network_file = open(STATE_DIR + "/networks.txt", "w")
+  network_file.write("{\n")
+  for i in range(0, len(ssid_keys)):
+    network_file.write('\t"' + ssid_keys[i] + '": "' + network_map[ssid_keys[i]])
+    if i == len(ssid_keys)-1:
+        network_file.write('"\n')
+    else:
+        network_file.write('",\n')
+  network_file.write("}\n")
+  network_file.close()
 
   return (ssid_keys, network_map)
 
@@ -865,6 +878,9 @@ def enableOneTimeSetup():
     except Exception as inst:
         print "Done."
 
+    print "Scanning and saving WiFi networks..."
+    scanForNetworks()
+
     print "Restarting WiFi access point. Please wait..."
     print ""
 
@@ -880,6 +896,11 @@ def enableOneTimeSetup():
     print "and visit",  "'" + hostname + ".local' in the browser"
 
 def disableOneTimeSetup():
+      try:
+        os.remove(STATE_DIR + "/networks.txt")
+      except Exception as inst:
+        pass
+
       subprocess.call("systemctl stop blink-led && systemctl disable blink-led &> /dev/null", shell=True)
 
       if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) != 0:

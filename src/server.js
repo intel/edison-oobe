@@ -25,6 +25,7 @@ var supportedExtensions = {
   "png"   : "image/png"
 };
 var STATE_DIR = '/var/lib/edison_config_tools';
+var NETWORKS_FILE = STATE_DIR + '/networks.txt';
 
 function getContentType(filename) {
   var i = filename.lastIndexOf('.');
@@ -286,6 +287,14 @@ function requestHandler(req, res) {
       });
     } else {
       res.end(getStateBasedIndexPage());
+    }
+  } else if (urlobj.pathname === '/wifiNetworks') {
+    if (fs.existsSync(NETWORKS_FILE)) {
+      res.setHeader('content-type', getContentType(NETWORKS_FILE));
+      res.end(fs.readFileSync(NETWORKS_FILE, {encoding: 'utf8'}));
+    } else {
+      res.statusCode = 404;
+      res.end("Please try again later.");
     }
   } else { // for files like .css and images.
     if (!fs.existsSync(site + urlobj.pathname)) {

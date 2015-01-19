@@ -186,3 +186,13 @@ label {
 .infoline_right {
     text-align: left;
 }
+
+.linkbutton {
+    text-align: left;
+    color: blue;
+    background: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    cursor: pointer;
+}
