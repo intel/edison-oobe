@@ -24,12 +24,10 @@ import urllib2
 import hashlib
 import argparse
 import json
-import re
 from array import *
 
-WSREGEX = re.compile(r"\s+")
 DESTINATION_PATH = "/tmp/"
-STATE_DIR = '/var/lib/edison_config_tools'
+STATE_DIR = '/var/lib/edison_config_tools' # todo: change in bitbake
 CURR_PACKAGE_PATH = ""
 
 class text_colors:
@@ -175,9 +173,6 @@ def verified(selection):
         return 0
 
 def changeName(newName):
-  if WSREGEX.search(newName):
-      print "New name contains whitespaces. Ignoring"
-      return
   _changeHostName(newName)
   _changeP2PSSID(newName)
   _changeAPSSID(newName)
@@ -189,7 +184,6 @@ def _changeHostName(newName):
   subprocess.call("hostname -F /etc/hostname", shell=True)
 
 def _changeAPSSID(newName):
-  saveDefaultSSID()
   os.popen("sed -i 's/^ssid=.*/ssid=%s/' /etc/hostapd/hostapd.conf" % (newName))
   subprocess.call("systemctl restart mdns && sleep 2", shell=True)
 
@@ -197,10 +191,6 @@ def _changeP2PSSID(newName):
   os.popen("sed -i 's/^p2p_ssid_postfix=.*/p2p_ssid_postfix=%s/' /etc/wpa_supplicant/p2p_supplicant.conf" % (newName))
 
 def changePassword(newPass):
-  if WSREGEX.search(newPass):
-      print "New password contains whitespaces. Ignoring"
-      return
-
   _changeRootPassword(newPass)
   if len(newPass) > 0:
       _changeAPPassword(newPass)
@@ -238,22 +228,18 @@ def reset(stage):
 def setEdisonHostname():
   while 1:
     name = raw_input("Give this Edison a unique name.\nThis will be used for the access point SSID and mDNS address.\nMake it at least five characters long (leave empty to skip): ")
-    if (WSREGEX.search(name)):
-      print ""
-      print 'Hostname must not contain whitespaces. Please try again.'
-      print ""
-    elif (len(name) == 0):
-      print "Skipping name change..."
-      break
-    elif (len(name) > 4):
+    if (len(name) > 4):
       if verified(name):
         print ""
         break
       else:
         print ""
+    elif (len(name) == 0):
+      print "Skipping name change..."
+      break
     else:
       print ""
-      print '\"' + name + '\" is too short. Please try again.'
+      print '\"' + name + "\" is too short. Please try again."
       print ""
 
   if len(name) > 0:
@@ -263,11 +249,7 @@ def setEdisonPassword():
    while 1:
      password = getPassword("Enter a new password (leave empty to abort)\nThis will be used to connect to the access point and login to the device.\nPassword: \t")
      if (password == getPassword("Please enter the password again: \t")):
-         if (WSREGEX.search(password)):
-             print ""
-             print 'The device password must not contain whitespaces. Please try again.'
-             print ""
-         elif len(password) == 0:
+         if len(password) == 0:
              print "Skipping password change."
              return
          elif len(password) < 8 or len(password) > 63:
@@ -275,6 +257,7 @@ def setEdisonPassword():
              print "The device password must be between 8 and 63 characters long. Please try again."
              print ""
          else:
+             print "The device password has been changed.\n"
              break
      else:
        print ""
@@ -282,7 +265,6 @@ def setEdisonPassword():
        print ""
 
    changePassword(password)
-   print "The device password has been changed.\n"
 
 def decideToConnect():
   while 1:
@@ -887,30 +869,8 @@ def full():
 def getSSID():
     return subprocess.check_output("grep -o '^ssid=.*' /etc/hostapd/hostapd.conf | awk -F'=' '{print $2}'", shell=True).strip()
 
-def saveDefaultSSID():
-    if not os.path.isfile(STATE_DIR + "/default-ssid.txt"):
-        curr_ssid = getSSID()
-        default_ssid_file = open(STATE_DIR + "/default-ssid.txt", "w")
-        default_ssid_file.write(curr_ssid + "\n")
-        default_ssid_file.close()
-
-def getDefaultSSID():
-    saveDefaultSSID()
-    default_ssid_file = open(STATE_DIR + "/default-ssid.txt", "r")
-    curr_ssid = default_ssid_file.readline()
-    default_ssid_file.close()
-    return curr_ssid.strip()
-
 def enableOneTimeSetup():
     subprocess.call("systemctl start blink-led && systemctl enable blink-led &> /dev/null", shell=True)
-
-    # its gotten confusing: if first-one-time-setup.done does not exist, it means we
-    # are starting one-time-setup a.k.a edison_config.service a.k.a oobe for the first time.
-    # would be nice one day to reconcile all these names.
-    if not os.path.isfile(STATE_DIR + "/first-one-time-setup.done"):
-      oobe = open(STATE_DIR + "/first-one-time-setup.done", "w")
-      oobe.write("Created when one-time-setup executed for the first time.\n")
-      oobe.close()
 
     hostname = subprocess.check_output('hostname').strip()
     try:
@@ -957,8 +917,7 @@ def disableOneTimeSetup():
 def showNames():
     hostname = subprocess.check_output('hostname', shell=True).strip()
     ssid = getSSID()
-    default_ssid = getDefaultSSID()
-    print '{"hostname": "' + hostname + '", "ssid": "' + ssid + '", "default_ssid": "' + default_ssid + '"}'
+    print '{"hostname": "' + hostname + '", "ssid": "' + ssid + '"}'
 
 def main():
 

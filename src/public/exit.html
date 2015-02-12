@@ -3,18 +3,9 @@
 <head>
     <title>Leaving Setup</title>
     <link rel="stylesheet" type="text/css" href="main.css" media="screen"/>
-    <script src="feedbacklib.js"></script>
     <script type="text/javascript">
         window.onload = function () {
             document.cookie = '{}';
-            var config = {};
-            config.currenthost = 'params_curr_hostname';
-            config.currentssid = 'params_curr_ssid';
-            config.host = 'params_hostname'; // uncomment
-            config.ssid = 'params_ssid';
-            config.newwifi = 'params_new_wifi';
-            initFeedbackLib(config);
-            queryForCommandOutput();
         }
     </script>
     <noscript>
@@ -23,21 +14,24 @@
 </head>
 <body>
 <h1>Leaving Setup</h1>
-<div class='section'>
-    <div class="content" style="padding: 30px; padding-bottom: 0px">
-        Please wait while we setup your device. Note that if WiFi is being setup, <b>the device will disconnect
-        momentarily. When that happens, please reconnect by joining <i>this</i> machine to the 'params_new_wifi'
-        network</b> and wait while we try to reach your device at
-        <a href="http://params_hostname">http://params_hostname</a>.
-        <br><br>
 
-        <hr class="progressbar" id="progressbar" align="left">
-        <textarea class="progresstext" id="progresstext" readonly rows="1" cols="200"></textarea><br><br>
-        <textarea class="cmdout" id="cmdout" readonly rows="10"></textarea>
-    </div>
-</div>
 <div class='section'>
-    <div class="content" id="errbox" style="padding: 30px; padding-bottom: 0px; padding-top: 0px; display: none">
+    <div class="content" style="padding: 30px">
+        Please wait while the device connects to 'params_ssid'. After about a minute, connect <i>this</i> machine to
+        '<b>params_ssid</b>' and visit <a href="http://params_hostname"><b>http://params_hostname</b></a> in your
+        browser.
+        <br><br>
+        If you are <i>unable to connect</i> to your device, you can try this setup again by following the steps below:
+
+        <ol>
+            <li>Press the 'PWR' button for more than 2 seconds (NOTE: Pressing 'PWR' for more than 7 seconds will
+                switch off power to the board)</li>
+            <li>Reconnect this machine to the 'params_ap' network</li>
+            <li>Visit '<b><a href="http://params_hostname">http://params_hostname</a></b>' in your browser</li>
+        </ol>
+
+        Alternatively, you can connect to the device via its serial port and run <code>configure_edison --wifi</code>
+        on the command line. To learn about other configuration options, run <code>configure_edison --help</code>.
     </div>
 </div>
 </body>

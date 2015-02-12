@@ -196,21 +196,3 @@ label {
     border: none;
     cursor: pointer;
 }
-
-.progressbar {
-    height: 20px;
-    background-color: green;
-    border: none;
-    width: 10px;
-}
-
-.progresstext {
-    width: 700px;
-    border: none;
-    resize: none;
-}
-
-.cmdout {
-    width: 930px;
-    resize: none;
-}
