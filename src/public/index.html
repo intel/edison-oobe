@@ -4,9 +4,11 @@
     <title>Edison Setup</title>
     <link rel="stylesheet" type="text/css" href="main.css" media="screen"/>
     <script type="text/javascript">
-        var MANUAL_SETUP_TEXT = "None of the above. Switch to manual setup";
+        var MANUAL_SETUP_TEXT = "Not listed? Switch to manual setup";
+        var SKIP_SETUP_TEXT = "Not applicable. Skip WiFi setup.";
         var SCANNING_TEXT = "Scanning...";
         var LIST_SEPARATOR = "-------------------------";
+        var COOKIE = {};
 
         function selectProtocolForSsid(ssid) {
             var networks = JSON.parse(document.getElementById("_networks").value);
@@ -22,69 +24,136 @@
         }
 
         function switchToManualSetup() {
-            document.getElementById("ssids").style.display = "none";
-            document.getElementById("ssid").value = "";
-            document.getElementById("ssid").style.display = "inline";
-            document.getElementById("protocol").selectedIndex = 0;
-            displayWiFiInputs(document.getElementById("protocol").value);
+            document.getElementById("newwifis").style.display = "none";
+            resetSsidRelatedFields();
+            document.getElementById("newwifi").style.display = "inline";
             document.getElementById("protocollabel").style.display = "inline";
-            document.getElementById("protocol").style.visibility = "visible";
+            document.getElementById("protocol").style.display = "inline";
         }
 
         function switchToAutomaticSetup() {
-            document.getElementById("ssid").style.display = "none";
-
-            document.getElementById("ssids").selectedIndex = 0;
-            document.getElementById("ssid").value = document.getElementById("ssids")[0].value;
-            selectProtocolForSsid(document.getElementById("ssid").value);
-
-            document.getElementById("ssids").style.display = "inline";
+            document.getElementById("newwifi").style.display = "none";
+            resetSsidRelatedFields();
+            document.getElementById("newwifis").style.display = "inline";
             document.getElementById("protocollabel").style.display = "none";
-            document.getElementById("protocol").style.visibility = "hidden";
+            document.getElementById("protocol").style.display = "none";
             document.getElementById("backToAutomatic").style.visibility = "hidden";
         }
 
+        function resetSsidRelatedFields() {
+            if (COOKIE.newwifi) {
+                document.getElementById("newwifi").value = COOKIE.newwifi;
+                if (COOKIE.newwifi !== COOKIE.ssidsValue) {
+                    document.getElementById("newwifis").value = COOKIE.ssidsValue;
+                    document.getElementById("protocol").value = COOKIE.protocol;
+                    displayWiFiInputs(COOKIE.protocol);
+                } else {
+                    document.getElementById("newwifis").value = COOKIE.newwifi;
+                    selectProtocolForSsid(COOKIE.newwifi);
+                }
+            } else {
+                if (COOKIE.ssidsValue) {
+                    document.getElementById("newwifis").value = COOKIE.ssidsValue;
+                } else {
+                    document.getElementById("newwifis").selectedIndex = 0;
+                }
+                document.getElementById("newwifi").value = document.getElementById("newwifis").value;
+                selectProtocolForSsid(document.getElementById("newwifi").value)
+            }
+        }
+
         function setSsidsRelatedFields() {
-            var ssidSelector = document.getElementById("ssids");
+            var ssidSelector = document.getElementById("newwifis");
             var selectedValue = ssidSelector[ssidSelector.selectedIndex].value;
             // These text strings come from default values set in functions below. Search to find out where.
-            if (selectedValue !== "Scanning..." && selectedValue !== MANUAL_SETUP_TEXT) {
-                document.getElementById("ssid").value = selectedValue;
+            if (selectedValue !== SCANNING_TEXT && selectedValue !== MANUAL_SETUP_TEXT &&
+                    selectedValue != SKIP_SETUP_TEXT) {
+                document.getElementById("newwifi").value = selectedValue;
                 selectProtocolForSsid(selectedValue);
             } else if (selectedValue === MANUAL_SETUP_TEXT) {
                 document.getElementById("backToAutomatic").style.visibility = "visible";
                 switchToManualSetup();
+            } else { // skip wifi setup
+                document.getElementById("newwifi").value = "";
+                document.getElementById("netpasslabel").style.display="none";
+                document.getElementById("netpass").style.display="none";
+                document.getElementById("netuserlabel").style.display="none";
+                document.getElementById("netuser").style.display="none";
+                document.getElementById("protocol").style.display="none";
             }
         }
 
         function displayWiFiInputs(protocol) {
             if (protocol === 'WEP' || protocol === 'WPA-PSK') {
-                document.getElementById("netpasslabel").style.visibility="visible";
-                document.getElementById("netpass").style.visibility="visible";
+                document.getElementById("netpasslabel").style.display="inline";
+                document.getElementById("netpass").style.display="inline";
 
-                document.getElementById("netuserlabel").style.visibility="hidden";
-                document.getElementById("netuser").style.visibility="hidden";
+                document.getElementById("netuserlabel").style.display="none";
+                document.getElementById("netuser").style.display="none";
             } else if (protocol === 'WPA-EAP') {
-                document.getElementById("netpasslabel").style.visibility="visible";
-                document.getElementById("netpass").style.visibility="visible";
+                document.getElementById("netpasslabel").style.display="inline";
+                document.getElementById("netpass").style.display="inline";
 
-                document.getElementById("netuserlabel").style.visibility="visible";
-                document.getElementById("netuser").style.visibility="visible";
+                document.getElementById("netuserlabel").style.display="inline";
+                document.getElementById("netuser").style.display="inline";
             } else {
-                document.getElementById("netpasslabel").style.visibility="hidden";
-                document.getElementById("netpass").style.visibility="hidden";
+                document.getElementById("netpasslabel").style.display="none";
+                document.getElementById("netpass").style.display="none";
 
-                document.getElementById("netuserlabel").style.visibility="hidden";
-                document.getElementById("netuser").style.visibility="hidden";
+                document.getElementById("netuserlabel").style.display="none";
+                document.getElementById("netuser").style.display="none";
             }
         }
 
         function saveFields() {
-            document.cookie = '{"name": "' + document.getElementById("name").value + '",' +
-                    '"ssid": "' + document.getElementById("ssid").value + '",' +
+            document.cookie =
+                    '{' +
+                    '"name": "' + document.getElementById("name").value + '",' +
+                    '"newwifi": "' + document.getElementById("newwifi").value + '",' +
                     '"protocol": "' + document.getElementById("protocol").value + '",' +
-                    '"netuser": "' + document.getElementById("netuser").value + '"' +
+                    '"netuser": "' + document.getElementById("netuser").value + '",' +
+                    '"ssidsValue": "' + document.getElementById("newwifis").value + '"' +
                     '}';
+        }
+
+        function initWiFiNetworkFields() {
+            var networks = JSON.parse(document.getElementById("_networks").value);
+            console.log("WiFi networks:");
+            console.log(networks);
+            var ssidSelector = document.getElementById("newwifis");
+            ssidSelector.remove(0);
+            for (var ssid in networks) {
+                if (networks.hasOwnProperty(ssid)) {
+                    var opt = document.createElement("option");
+                    opt.value = ssid;
+                    opt.textContent = ssid;
+                    ssidSelector.add(opt);
+                }
+            }
+
+            if (ssidSelector.length === 0) {
+                console.log("No WiFi networks found. Switching to manual setup.");
+                switchToManualSetup();
+            } else {
+                // add the switch to manual setup option
+                var opt = document.createElement("option");
+                opt.value = LIST_SEPARATOR;
+                opt.textContent = opt.value;
+                opt.disabled = "disabled";
+                ssidSelector.add(opt);
+
+                opt = document.createElement("option");
+                opt.value = MANUAL_SETUP_TEXT;
+                opt.textContent = opt.value;
+                ssidSelector.add(opt);
+
+                opt = document.createElement("option");
+                opt.value = SKIP_SETUP_TEXT;
+                opt.textContent = opt.value;
+                ssidSelector.add(opt);
+
+                resetSsidRelatedFields();
+            }
         }
 
         function getWiFiNetworks() {
@@ -97,41 +166,7 @@
             xmlhttp.onreadystatechange = function () {
                 if (xmlhttp.readyState === 4 && xmlhttp.status === 200) {
                     document.getElementById("_networks").value = xmlhttp.responseText;
-                    var networks = JSON.parse(xmlhttp.responseText);
-                    console.log("WiFi networks:");
-                    console.log(networks);
-                    var ssidSelector = document.getElementById("ssids");
-                    ssidSelector.remove(0);
-                    var idx = 0;
-                    for (var ssid in networks) {
-                        if (networks.hasOwnProperty(ssid)) {
-                            var opt = document.createElement("option");
-                            opt.value = ssid;
-                            opt.innerHTML = ssid;
-                            ssidSelector.add(opt);
-                        }
-                    }
-
-                    if (ssidSelector.length === 0) {
-                        console.log("No WiFi networks found. Switching to manual setup.");
-                        switchToManualSetup();
-                    } else {
-                        // set the ssid and protocol in the hidden fields
-                        document.getElementById("ssid").value = ssidSelector[ssidSelector.selectedIndex].value;
-                        selectProtocolForSsid(ssidSelector[ssidSelector.selectedIndex].value);
-
-                        // add the switch to manual setup option
-                        var opt = document.createElement("option");
-                        opt.value = LIST_SEPARATOR;
-                        opt.innerHTML = opt.value;
-                        opt.disabled = "disabled";
-                        ssidSelector.add(opt);
-
-                        opt = document.createElement("option");
-                        opt.value = MANUAL_SETUP_TEXT;
-                        opt.innerHTML = opt.value;
-                        ssidSelector.add(opt);
-                    }
+                    initWiFiNetworkFields();
                 } else if (xmlhttp.readyState === 4 && xmlhttp.status === 404) {
                     if (getWiFiNetworks.called) {
                         getWiFiNetworks.called++;
@@ -152,24 +187,17 @@
         }
 
         window.onload = function () {
+            if (document.cookie)
+                COOKIE = JSON.parse(document.cookie);
+
             getWiFiNetworks();
 
-            // restore any saved fields
-            if (!document.cookie)
-                return;
-
-            var savedFields = JSON.parse(document.cookie);
-
-            if (savedFields.name)
-                document.getElementById("name").value = savedFields.name;
-            if (savedFields.ssid)
-                document.getElementById("ssid").value = savedFields.ssid;
-            if (savedFields.protocol)
-                document.getElementById("protocol").value = savedFields.protocol;
-            if (savedFields.netuser)
-                document.getElementById("netuser").value = savedFields.netuser;
-
-            displayWiFiInputs(savedFields.protocol);
+            // restore subset of saved fields
+            // wifi related fields will be restored in getWiFiNetworks()
+            if (COOKIE.name)
+                document.getElementById("name").value = COOKIE.name;
+            if (COOKIE.netuser)
+                document.getElementById("netuser").value = COOKIE.netuser;
         };
     </script>
     <noscript>
@@ -198,9 +226,8 @@
         <table class="content">
             <tr>
                 <td class="left">
-                    This changes the device name for the access point and for mDNS. This does not change the default
-                    login, which remains as root. Minimum of 5 characters (leave field empty to skip setting a device
-                    name at this time.)
+                    This changes the device and access point name (must be at least 5 characters). The
+                    default login remains as 'root'. Tip: leave field empty to skip setting a device name.
                 </td>
                 <td class="middle"><label for="name">New Device Name:</label></td>
                 <td class="right"><input type="text" id="name" name="name" class="textbox"></td>
@@ -212,34 +239,40 @@
         <table class="content">
             <tr>
                 <td class="left">
-                    Connect to a wireless network by entering the credentials. This could take around
-                    <b>30 seconds</b> to complete (leave fields empty to skip setting up WiFi at this time.)
+                    Connect to a wireless network by entering the required information.
                 </td>
                 <td class="middle">
-                    <br>
-                    <label id="ssidlabel" for="ssid">Network Name:</label><br>
-                    <label id="protocollabel" for="protocol" style="display: none">Network Protocol:</label><br>
-                    <label id="netpasslabel" for="netpass" style="visibility: hidden">Password:</label><br>
-                    <label id="netuserlabel" for="netuser" style="visibility: hidden">Username:</label>
+                    <table style="padding-top: 15px">
+                        <tr><td id="ssidlabel" style="display: inline">
+                            Network Name:</td></tr>
+                        <tr><td id="protocollabel" style="display: none">
+                            Network Protocol:</td></tr>
+                        <tr><td id="netuserlabel" style="display: none">
+                            Username:</td></tr>
+                        <tr><td id="netpasslabel" style="display: none">
+                            Password:</td></tr>
+                    </table>
                 </td>
                 <td class="right">
                     <button type="button" class="linkbutton" id="backToAutomatic" style="visibility: hidden"
                            onclick="switchToAutomaticSetup();">Back to automatic setup</button>
-                    <input type="text" id="ssid" name="ssid" class="textbox" style="display:none">
-                    <select id="ssids" name="ssids" class="selector" onchange="setSsidsRelatedFields()"
+                    <input type="text" id="newwifi" name="newwifi" class="textbox" style="display: none">
+                    <select id="newwifis" name="newwifis" class="selector" onchange="setSsidsRelatedFields()"
                             style="display: inline-block">
                         <option selected="selected">Scanning...</option>
                     </select>
-                    <select id="protocol" name="protocol" class="selector" style="visibility: hidden"
+                    <select id="protocol" name="protocol" class="selector" style="display: none"
                             onchange="displayWiFiInputs(document.getElementById('protocol').value)">
                         <option value="OPEN">Open</option>
                         <option value="WEP">WEP</option>
                         <option value="WPA-PSK">WPA-Personal or WPA2-Personal</option>
                         <option value="WPA-EAP">WPA-Enterprise or WPA2-Enterprise</option>
                     </select>
-                    <input type="password" id="netpass" name="netpass" class="textbox" style="visibility: hidden">
-                    <input type="text" id="netuser" name="netuser" class="textbox" style="visibility: hidden">
-                    <input type="hidden" id="_networks" name="_networks" class="textbox">
+                    <input type="password" id="netpass" name="netpass" class="textbox"
+                           style="display: none">
+                    <input type="text" id="netuser" name="netuser" class="textbox"
+                           style="display: none">
+                    <input type="hidden" id="_networks" name="_networks" class="textbox" value="{}">
                 </td>
             </tr>
         </table>

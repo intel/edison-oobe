@@ -3,9 +3,33 @@
 <head>
     <title>Leaving Setup</title>
     <link rel="stylesheet" type="text/css" href="main.css" media="screen"/>
+    <script src="feedbacklib.js"></script>
     <script type="text/javascript">
         window.onload = function () {
             document.cookie = '{}';
+            var config = {};
+            config.currenthost = 'params_curr_hostname';
+            config.currentssid = 'params_curr_ssid';
+            config.host = 'params_hostname';
+            config.ssid = 'params_ssid';
+            config.newwifi = config.ssid;
+            config.configFailProgressText = "Sorry, could not upgrade your device.";
+            config.maxtime = 10;
+            config.errsetup =
+                    "<b style='color: red'>Sorry, we encountered an error while upgrading your device.</b> " +
+                    "Please see messsages in the status area above for details. To restore the device to its previous " +
+                    "state, log in via its serial port and run the <code>reboot</code> command." + "<br><br>";
+            config.errdisconnect =
+                    "<b style='color: blue'>Sorry, we could not reach your device.</b> Please note that " +
+                    "the upgrade may still have succeeded. To verify, make sure the new device software version is " +
+                    "different from <i>'params_version'</i> (the current version). To determine device software " +
+                    "version, log in via its serial port and run the command <code>configure_edison --version</code>. " +
+                    "If the device software version is same as the one shown above, the upgrade has failed and " +
+                    "you must run the <code>reboot</code> command to restore the device to its previous state." +
+                    "<br><br>";
+            config.configSuccessProgressText = "Device upgrade complete.";
+            initFeedbackLib(config);
+            queryForCommandOutput();
         }
     </script>
     <noscript>
@@ -14,20 +38,23 @@
 </head>
 <body>
 <h1>Leaving Setup</h1>
-
 <div class='section'>
-    <div class="content" style="padding: 30px">
-        <p>The firmware file has been uploaded successfully and the device is about to upgrade. Please allow <b>5
-            mins</b> for the device to finish upgrading. The device will reboot twice before it is ready to use
-            again. If the upgrade is successful, data in the <code>/home</code> directory should remain unchanged.
+    <div class="content" style="padding: 30px; padding-bottom: 0px">
+        The firmware file has been uploaded successfully and the device is upgrading.
 
-        <p><b>Important note:</b>
+        <br><br>
+        Soon, the device will disconnect. <b>Then, in about 3 minutes, connect this machine to the 'params_ssid'
+        network and wait while we try to reach your device at
+        '<a href="http://params_hostname">http://params_hostname</a>'</b>.
+        <br><br>
 
-        <p>The current version number of the device is <i>params_version</i>. After the upgrade, please log in via the
-        serial port and run the command <code>configure_edison --version</code> to verify that the version number has
-        changed. If that is not the case, the upgrade has failed and you must run the <code>reboot</code> command to
-        restore the device to its previous state.
+        <hr class="progressbar" id="progressbar" align="left">
+        <textarea class="progresstext" id="progresstext" readonly rows="1" cols="200"></textarea><br><br>
+        <textarea class="cmdout" id="cmdout" readonly rows="10"></textarea>
     </div>
+</div>
+<div class='section'>
+    <div class="content" id="errbox" style="padding: 30px; padding-bottom: 0px; padding-top: 0px; display: none"></div>
 </div>
 </body>
 </html>

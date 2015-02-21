@@ -4,8 +4,9 @@
   "description": "Web-based administration portal for conifiguring and upgrading the Edison",
   "main": "src/server.js",
   "dependencies": {
-    "multiparty": "*"
+    "multiparty": "*",
+    "shelljs": "*"
   },
   "author": "Intel Corporation",
-  "license": "LGPL"
+  "license": "MIT"
 }
