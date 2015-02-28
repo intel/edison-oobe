@@ -32,7 +32,7 @@ var NETWORKS_FILE = STATE_DIR + '/networks.txt';
 var COMMAND_OUTPUT = "";
 var COMMAND_OUTPUT_MAX = 3072; // bytes
 // available when edison is not in AP-mode. In AP-mode, however, all commands and files are available.
-// That's because AP-mode is considered secure (credentials are derived from mac address and serial number on box)
+// That's because AP-mode is considered somewhat more secure (credentials are derived from mac address and serial number on box)
 var WHITELIST_CMDS = {
   "/commandOutput": true
 };
@@ -435,7 +435,7 @@ exec('configure_edison --showNames', function (error, stdout, stderr) {
           console.log("Upgrade status file saved");
         }
       });
-      var result = shell.exec('configure_edison --testRestartWithAP', {silent:true});
+      var result = shell.exec('configure_edison --isRestartWithAPSet', {silent:true});
       if ((result.code != 0) || (result.output.trim() === "True")) {
         exec('configure_edison --enableOneTimeSetup', function (error, stdout, stderr) {
           if (error) {

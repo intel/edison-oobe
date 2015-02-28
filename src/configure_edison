@@ -30,7 +30,7 @@ from array import *
 WSREGEX = re.compile(r"\s+")
 DESTINATION_PATH = "/tmp/"
 STATE_DIR = '/var/lib/edison_config_tools'
-HOST_AP_MODE_FILE = "/start-in-host-ap-mode"
+HOST_AP_MODE_FILE = "/.start-in-host-ap-mode"
 CURR_PACKAGE_PATH = ""
 
 class text_colors:
@@ -870,7 +870,7 @@ def flashFile(packagePath, rebootInApMode):
         removeFolderContents("/update")
         print "Please reboot the device to return to normal."
 
-def testRestartWithAP():
+def isRestartWithAPSet():
     try:
         ret_value = subprocess.call("mkdir -p /update", shell=True)
         if ret_value != 0:
@@ -1025,7 +1025,7 @@ def disableOneTimeSetup(persist):
 
 def toggleOneTimeSetup(persist):
     if showWiFiMode() == "Master":
-          disableOneTimeSetup(persist)
+        disableOneTimeSetup(persist)
     else:
         enableOneTimeSetup(persist)
 
@@ -1053,23 +1053,23 @@ def main():
     group_interactive.add_argument('--wifi', dest='wifi', help='Changes the wifi options', action='store_true', default=False)
 
     group_non_interactive = root_group.add_mutually_exclusive_group()
-    group_non_interactive.add_argument('--testRestartWithAP', dest='testRestartWithAP', help=argparse.SUPPRESS, action='store_true', default=False)
+    group_non_interactive.add_argument('--isRestartWithAPSet', dest='isrestartwithapset', help=argparse.SUPPRESS, action='store_true', default=False)
     group_non_interactive.add_argument('--showWiFiIP', dest='showwifiip', help='IP address associated with the wireless interface', action='store_true', default=False)
     group_non_interactive.add_argument('--showWiFiMode', dest='showwifimode', help='Show current mode for the wireless interface', action='store_true', default=False)
     group_non_interactive.add_argument('--version', dest='version', help='Gets the current firmware version', action='store_true', default=False)
     group_non_interactive.add_argument('--latest-version', dest='latestversion', help='Gets the latest firmware version', action='store_true', default=False)
-    group_non_interactive.add_argument('--upgrade', dest='upgrade', help='Downloads the latest firmware. Append --restartWithAP to reboot in host AP mode afther flashing', \
+    group_non_interactive.add_argument('--disableOneTimeSetup', dest='disableonetimesetup', help='Disable one-time setup with WiFi access point and enable WiFi client mode \
+                                       Append --persist to retain this setting after reboot', action='store_true', default=False)
+    group_non_interactive.add_argument('--enableOneTimeSetup', dest='enableonetimesetup', help='Enable one-time setup with WiFi access point and disable WiFi client mode. \
+                                        Append --persist to retain this setting after reboot', action='store_true', default=False)
+    group_non_interactive.add_argument('--toggleOneTimeSetup', dest='toggleonetimesetup', help='Switch between one-time setup with WiFi access point and WiFi client mode, and visa-versa. \
+                                       Append --persist to retain this setting after reboot', action='store_true', default=False)
+    group_non_interactive.add_argument('--upgrade', dest='upgrade', help='Downloads the latest firmware. Append --restartWithAP to reboot in WiFi access point mode after flashing', \
                                        action='store_true', default=False)
-    group_non_interactive.add_argument('--disableOneTimeSetup', dest='disableOneTimeSetup', help='Disable one-time setup and WiFi access point. \
-                                       Append --persist to maintain configuration after reboot', action='store_true', default=False)
-    group_non_interactive.add_argument('--enableOneTimeSetup', dest='enableOneTimeSetup', help='Enable one-time setup and WiFi access point. \
-                                       Append --persist to maintain configuration after reboot', action='store_true', default=False)
-    group_non_interactive.add_argument('--toggleOneTimeSetup', dest='toggleOneTimeSetup', help='Switch between one-time setup and WiFi access point , and  visa-versa. \
-                                       Append --persist to maintain configuration after reboot', action='store_true', default=False)
     group_non_interactive.add_argument('--flash', metavar=('<version>','<release name>'), nargs='+', dest='otaflash', help='Downloads and flashes an image \
-                                       Append --restartWithAP to reboot in host AP mode afther flashing')
+                                       Append --restartWithAP to reboot in WiFi access point mode after flashing')
     group_non_interactive.add_argument('--flashFile', metavar=('<image-file>'), nargs=1, dest='flashfile', help='Flashes the given image (.zip). \
-                                       Append --restartWithAP to reboot in host AP mode afther flashing')
+                                       Append --restartWithAP to reboot WiFi access point mode after flashing')
     group_non_interactive.add_argument('--changePassword', metavar='password', dest='changepassword', const='', help=argparse.SUPPRESS, nargs='?')
     group_non_interactive.add_argument('--changeName', metavar='name', dest='changename', help=argparse.SUPPRESS, nargs=1)
     group_non_interactive.add_argument('--changeWiFi', metavar='securityType SSID [Identity | password]', dest='changewifi', help=argparse.SUPPRESS, nargs='+')
@@ -1118,10 +1118,7 @@ def main():
     if args.upgrade:
         try:
             CURR_PACKAGE_PATH = DESTINATION_PATH + "package.zip"
-            if args.restartwithap:
-                upgrade(CURR_PACKAGE_PATH, True)
-            else:
-                upgrade(CURR_PACKAGE_PATH, False)
+            upgrade(CURR_PACKAGE_PATH, args.restartwithap)
 
         except Exception as inst:
             print "Could not upgrade device firmware. Quitting."
@@ -1132,8 +1129,8 @@ def main():
     if args.shownames:
         showNames()
 
-    if args.testRestartWithAP:
-        print testRestartWithAP()
+    if args.isrestartwithapset:
+        print isRestartWithAPSet()
 
     if args.otaflash != None:
         version = None
@@ -1159,10 +1156,8 @@ def main():
         CURR_PACKAGE_PATH = DESTINATION_PATH + "package.zip"
 
         try:
-            if args.restartwithap:
-                doOTAFlash(url, sha1, CURR_PACKAGE_PATH, True)
-            else:
-                doOTAFlash(url, sha1, CURR_PACKAGE_PATH, False)
+            doOTAFlash(url, sha1, CURR_PACKAGE_PATH, args.restartwithap)
+
         except Exception as inst:
             print >> sys.stderr, type(inst)
             print >> sys.stderr, inst
@@ -1171,10 +1166,7 @@ def main():
 
     if args.flashfile != None:
         CURR_PACKAGE_PATH = args.flashfile[0]
-        if args.restartwithap:
-            flashFile(CURR_PACKAGE_PATH, True)
-        else:
-            flashFile(CURR_PACKAGE_PATH, False)
+        flashFile(CURR_PACKAGE_PATH, args.restartwithap)
 
     if args.changepassword != None:
         changePassword(args.changepassword)
@@ -1188,23 +1180,14 @@ def main():
     if args.showwifimode:
         print showWiFiMode()
 
-    if args.enableOneTimeSetup:
-        if args.persist:
-            enableOneTimeSetup(True)
-        else:
-            enableOneTimeSetup(False)
+    if args.enableonetimesetup:
+        enableOneTimeSetup(args.persist)
 
-    if args.disableOneTimeSetup:
-        if args.persist:
-            disableOneTimeSetup(True)
-        else:
-            disableOneTimeSetup(False)
+    if args.disableonetimesetup:
+        disableOneTimeSetup(args.persist)
 
-    if args.toggleOneTimeSetup:
-        if args.persist:
-            toggleOneTimeSetup(True)
-        else:
-            toggleOneTimeSetup(False)
+    if args.toggleonetimesetup:
+        toggleOneTimeSetup(args.persist)
 
     if args.changewifi != None:
         network_conf = configureNetworkAP(args.changewifi)
@@ -1222,8 +1205,8 @@ def main():
     #print 'version = ',args.version
     #print 'latestversion = ',args.latestversion
     #print 'upgrade = ',args.upgrade
-    #print 'disableOneTimeSetup = ',args.disableOneTimeSetup
-    #print 'enableOneTimeSetup = ',args.enableOneTimeSetup
+    #print 'disableonetimesetup = ',args.disableonetimesetup
+    #print 'enableonetimesetup = ',args.enableonetimesetup
     #print 'otaflash = ',args.otaflash
     #print 'changepassword = ',args.changepassword
 
