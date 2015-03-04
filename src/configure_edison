@@ -537,8 +537,7 @@ def connectNetwork():
   #print network_conf
   setNetwork(network_conf, ssid)
   checkNetwork()
-  if showWiFiMode() == "Master":
-    disableOneTimeSetup(True)
+  disableOneTimeSetup(True)
 
 def showWiFiIP():
     ipstr = ''
@@ -959,8 +958,6 @@ def full():
   setEdisonHostname()
   if decideToConnect():
     connectNetwork()
-    if showWiFiMode() == "Master":
-      disableOneTimeSetup(True)
   else:
     print "Done.\n"
 
@@ -989,6 +986,8 @@ def enableOneTimeSetup(persist):
     print "Scanning and saving WiFi networks..."
     scanForNetworks()
 
+    subprocess.call("systemctl stop wpa_supplicant", shell=True)
+
     print "Restarting WiFi access point. Please wait..."
     print ""
 
@@ -997,9 +996,8 @@ def enableOneTimeSetup(persist):
         subprocess.call("systemctl enable hostapd &> /dev/null", shell=True)
         subprocess.call("systemctl enable blink-led &> /dev/null", shell=True)
 
-    if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) == 1:
-        subprocess.call("systemctl stop wpa_supplicant", shell=True)
-        subprocess.call("systemctl restart hostapd", shell=True)
+    if int(subprocess.check_output("systemctl status hostapd | grep 'active (running)' | wc -l", shell=True)) == 0:
+        subprocess.call("systemctl start hostapd &> /dev/null", shell=True)
 
     myssid = getSSID()
 
@@ -1008,6 +1006,7 @@ def enableOneTimeSetup(persist):
 
 def disableOneTimeSetup(persist):
     subprocess.call("systemctl stop blink-led &> /dev/null", shell=True)
+    subprocess.call("systemctl stop hostapd &> /dev/null", shell=True)
 
     try:
         os.remove(STATE_DIR + "/networks.txt")
@@ -1020,7 +1019,6 @@ def disableOneTimeSetup(persist):
         subprocess.call("systemctl disable blink-led &> /dev/null", shell=True)
 
     if int(subprocess.check_output("systemctl status wpa_supplicant | grep 'active (running)' | wc -l", shell=True)) == 0:
-        subprocess.call("systemctl stop hostapd &> /dev/null", shell=True)
         subprocess.call("systemctl start wpa_supplicant &> /dev/null", shell=True)
 
 def toggleOneTimeSetup(persist):
@@ -1091,8 +1089,6 @@ def main():
 
     if args.wifi:
         connectNetwork()
-        if showWiFiMode() == "Master":
-            disableOneTimeSetup(True)
         if not os.path.isfile(STATE_DIR + "/password-setup.done"):
             print "Warning: SSH is not yet enabled on the wireless interface. To enable SSH access to this device via wireless run configure_edison --password first."
 

@@ -276,7 +276,7 @@ function submitForm(params, res, req) {
     res_str = res_str.replace(/params_curr_hostname/g, nameobj.hostname + ".local");
     res.end(res_str);
 
-    commands.push({cmd: "configure_edison", args: ["--disableOneTimeSetup"]});
+    commands.push({cmd: "configure_edison", args: ["--disableOneTimeSetup", "--persist"]});
 
     // Now execute the commands serially
     runCmd(0, commands);
