@@ -25,6 +25,7 @@ import hashlib
 import argparse
 import json
 import re
+import popen2
 from array import *
 
 WSREGEX = re.compile(r"\s+")
@@ -189,33 +190,36 @@ def _changeHostName(newName):
 
 def _changeAPSSID(newName):
   saveDefaultSSID()
-  os.popen("sed -i 's/^ssid=.*/ssid=%s/' /etc/hostapd/hostapd.conf" % (newName))
+  subprocess.call(["sed", "-i", "s/^ssid=.*/ssid=" + newName + "/", "/etc/hostapd/hostapd.conf"])
   subprocess.call("systemctl restart mdns && sleep 2", shell=True)
 
 def _changeP2PSSID(newName):
-  os.popen("sed -i 's/^p2p_ssid_postfix=.*/p2p_ssid_postfix=%s/' /etc/wpa_supplicant/p2p_supplicant.conf" % (newName))
+  subprocess.call(["sed", "-i", "s/^p2p_ssid_postfix=.*/p2p_ssid_postfix=" + newName + "/", "/etc/wpa_supplicant/p2p_supplicant.conf"])
 
 def changePassword(newPass):
   if WSREGEX.search(newPass):
-      print "New password contains whitespaces. Ignoring"
-      return
+    print "New password contains whitespaces. Ignoring"
+    return
 
   _changeRootPassword(newPass)
   if len(newPass) > 0:
-      _changeAPPassword(newPass)
+    _changeAPPassword(newPass)
 
   if (not os.path.isfile(STATE_DIR + "/password-setup.done")):
-      pass_done = open(STATE_DIR + "/password-setup.done", "w")
-      pass_done.write("Indicates that password has been changed via oobe.\n")
-      pass_done.close()
-      print "First-time root password setup complete. Enabling SSH on WiFi interface."
-      subprocess.call("sed -i 's/^BindToDevice=/# BindToDevice=/g' /lib/systemd/system/sshd.socket ; sync ; systemctl daemon-reload; systemctl restart sshd.socket", shell=True)
+    pass_done = open(STATE_DIR + "/password-setup.done", "w")
+    pass_done.write("Indicates that password has been changed via oobe.\n")
+    pass_done.close()
+    print "First-time root password setup complete. Enabling SSH on WiFi interface."
+    subprocess.call("sed -i 's/^BindToDevice=/# BindToDevice=/g' /lib/systemd/system/sshd.socket ; sync ; systemctl daemon-reload; systemctl restart sshd.socket", shell=True)
 
 def _changeRootPassword(newPass):
-  os.popen('echo "root":"%s" | chpasswd' % newPass)
+  echoSub = subprocess.Popen(["echo", "root:" + newPass], stdout=subprocess.PIPE)
+  chpasswdSub = subprocess.Popen(["chpasswd"], stdin=echoSub.stdout, stdout=subprocess.PIPE)
+  echoSub.stdout.close()  # Allow echoSub to receive a SIGPIPE if chpasswdSub exits.
+  chpasswdSub.communicate()[0]
 
 def _changeAPPassword(newPass):
-  os.popen("sed -i 's/^wpa_passphrase=.*/wpa_passphrase=%s/' /etc/hostapd/hostapd.conf" % (newPass))
+  subprocess.call(["sed", "-i", "s/^wpa_passphrase=.*/wpa_passphrase=" + newPass + "/", "/etc/hostapd/hostapd.conf"])
 
 def getNetworkIdentity():
   return raw_input("Please enter the network username: ")
