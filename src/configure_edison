@@ -297,6 +297,10 @@ def decideToConnect():
     else:
       print "I need Y or N as a reply."
 
+WPAPSK_REGEX=re.compile(r'\[WPA[2]?-PSK-.+\]')
+WPAEAP_REGEX=re.compile(r'\[WPA[2]?-EAP-.+\]')
+WEP_REGEX=re.compile(r'\[WEP.*\]')
+
 def scanForNetworks():
   stdout.write("Starting scan\r")
   stdout.flush()
@@ -320,13 +324,12 @@ def scanForNetworks():
     if (len(line) == 5):
       ssid = line.pop()
       if ssid not in ssid_keys and not ssid == "" and "\\x00" not in ssid:
-        tokens = line.pop().replace("[","").split("]")[0].split("-")
-        if tokens[0] == "WPA" or tokens[0] == "WPA2":
-          if tokens[1] == "EAP":
-            network_map[ssid] = "WPA-EAP"
-          elif tokens[1] == "PSK":
-            network_map[ssid] = "WPA-PSK"
-        elif tokens[0] == "WEP":
+        tokens = line.pop()
+        if WPAPSK_REGEX.search(tokens):
+          network_map[ssid] = "WPA-PSK"
+        elif WPAEAP_REGEX.search(tokens):
+          network_map[ssid] = "WPA-EAP"
+        elif WEP_REGEX.search(tokens):
           network_map[ssid] = "WEP"
         else:
           network_map[ssid] = "OPEN"
