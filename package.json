@@ -1,6 +1,6 @@
 {
   "name": "oobe",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Web-based administration portal for conifiguring and upgrading the Edison",
   "main": "src/server.js",
   "dependencies": {
