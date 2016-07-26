@@ -25,7 +25,6 @@ import hashlib
 import argparse
 import json
 import re
-import popen2
 from array import *
 
 WSREGEX = re.compile(r"\s+")
